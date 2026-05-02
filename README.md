@@ -32,10 +32,11 @@ npm run build
 npm start
 ```
 
-## Usuarios demo
+## Usuario Inicial
 
 - Admin: `admin@tuscolo.de` / `admin123`
-- Empleados demo: contraseña `demo123`
+
+Después de entrar como admin podés promover usuarios registrados a admin desde el panel.
 
 ## Backend MVP
 

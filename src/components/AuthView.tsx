@@ -181,11 +181,6 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
     verifyAndRegister();
   };
 
-  const loadDemo = (user: AppUser) => {
-    setEmail(user.email);
-    setPassword(user.password ?? "");
-  };
-
   const visibleError = localError || (mode === "login" ? error : "");
 
   return (
@@ -305,16 +300,6 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
               {mode === "login" ? t("auth.login") : t("auth.register")}
             </button>
 
-            {mode === "login" ? (
-              <div className="demo-users">
-                <p>{t("auth.demoUsers")}</p>
-                {users.filter((user) => user.password).slice(0, 3).map((user) => (
-                  <button type="button" key={user.id} onClick={() => loadDemo(user)}>
-                    {user.name} · {t(`roles.${user.role}`)}
-                  </button>
-                ))}
-              </div>
-            ) : null}
           </>
         )}
       </div>
