@@ -31,7 +31,7 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
   startRegister: (input: { name: string; email: string; password: string; language: string }) =>
-    request<{ ok: true; devCode?: string }>("/api/auth/register/start", {
+    request<{ ok: true; emailSent?: boolean; devCode?: string }>("/api/auth/register/start", {
       method: "POST",
       body: JSON.stringify(input),
     }),

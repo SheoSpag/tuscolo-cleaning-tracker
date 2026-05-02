@@ -147,7 +147,7 @@ function App() {
     try {
       const result = await api.startRegister(input);
       setError("");
-      return { ok: true, devCode: result.devCode };
+      return { ok: true, emailSent: result.emailSent, devCode: result.devCode };
     } catch (requestError) {
       const message = requestError instanceof Error && requestError.message === "Email exists" ? translate(language, "errors.emailExists") : translate(language, "errors.requiredFields");
       setError(message);

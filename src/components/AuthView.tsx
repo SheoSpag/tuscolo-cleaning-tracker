@@ -7,7 +7,7 @@ import { languageLabels } from "../i18n/translations";
 type AuthViewProps = {
   users: AppUser[];
   onLogin: (email: string, password: string) => Promise<boolean>;
-  onStartRegister: (input: { name: string; email: string; password: string; language: Language }) => Promise<{ ok: boolean; devCode?: string; message?: string }>;
+  onStartRegister: (input: { name: string; email: string; password: string; language: Language }) => Promise<{ ok: boolean; emailSent?: boolean; devCode?: string; message?: string }>;
   onVerifyRegister: (email: string, code: string) => Promise<boolean>;
   error?: string;
 };
@@ -124,7 +124,7 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
     setSentCode(result.devCode ?? "");
     setConfirmationCode("");
     setResendSeconds(resendDelaySeconds);
-    setNotice(result.devCode ? `${t("auth.codeSent")} ${nextUser.email}. ${t("auth.demoCode")}: ${result.devCode}` : `${t("auth.codeSent")} ${nextUser.email}.`);
+    setNotice(result.devCode && !result.emailSent ? `${t("auth.codeSent")} ${nextUser.email}. ${t("auth.demoCode")}: ${result.devCode}` : `${t("auth.codeSent")} ${nextUser.email}.`);
     setRegisterStep("verify");
   };
 
@@ -161,7 +161,7 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
       setSentCode(result.devCode ?? "");
       setConfirmationCode("");
       setResendSeconds(resendDelaySeconds);
-      setNotice(result.devCode ? `${t("auth.codeSent")} ${pendingUser.email}. ${t("auth.demoCode")}: ${result.devCode}` : `${t("auth.codeSent")} ${pendingUser.email}.`);
+      setNotice(result.devCode && !result.emailSent ? `${t("auth.codeSent")} ${pendingUser.email}. ${t("auth.demoCode")}: ${result.devCode}` : `${t("auth.codeSent")} ${pendingUser.email}.`);
     });
   };
 

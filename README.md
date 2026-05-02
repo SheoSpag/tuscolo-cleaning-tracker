@@ -42,9 +42,25 @@ npm start
 - API Node sin dependencias externas.
 - Persistencia local en `server/data/db.json`.
 - Login con contraseña hasheada.
-- Registro con código de confirmación simulado.
+- Registro con código de confirmación por email si configurás `RESEND_API_KEY`; sin esa variable usa código demo en consola.
 - Gestión de roles desde el panel admin.
 - Endpoints para tareas, registros y usuarios.
+
+## Email Real En Producción
+
+En Render, agregá estas variables de entorno:
+
+```bash
+HOST=0.0.0.0
+RESEND_API_KEY=re_xxxxxxxxx
+EMAIL_FROM=Tuscolo <onboarding@resend.dev>
+```
+
+Para enviar a cualquier email real, Resend requiere un dominio verificado. Mientras uses `onboarding@resend.dev`, Resend normalmente permite pruebas limitadas, pero para uso real conviene verificar un dominio propio y poner:
+
+```bash
+EMAIL_FROM=Tuscolo <noreply@tudominio.com>
+```
 
 ## Funcionalidades MVP
 

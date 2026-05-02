@@ -11,6 +11,8 @@ const dataDir = path.join(__dirname, "data");
 const dbPath = path.join(dataDir, "db.json");
 const port = Number(process.env.PORT || 8787);
 const host = process.env.HOST || "127.0.0.1";
+const resendApiKey = process.env.RESEND_API_KEY;
+const emailFrom = process.env.EMAIL_FROM || "Tuscolo <onboarding@resend.dev>";
 const verificationCodes = new Map();
 
 const defaultUsers = [
@@ -90,6 +92,44 @@ function sendJson(res, status, body) {
   res.end(payload);
 }
 
+async function sendVerificationEmail({ to, code, name }) {
+  if (!resendApiKey) {
+    console.log(`[Tuscolo] Verification code for ${to}: ${code}`);
+    return { sent: false, devCode: code };
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: emailFrom,
+      to: [to],
+      subject: "Tuscolo Cleaning Tracker - Código de confirmación",
+      html: `
+        <div style="font-family:Arial,sans-serif;line-height:1.5;color:#20231b">
+          <h2 style="margin:0 0 12px;color:#6b744d">Tuscolo Cleaning Tracker</h2>
+          <p>Hola ${name},</p>
+          <p>Tu código de confirmación es:</p>
+          <p style="font-size:28px;font-weight:800;letter-spacing:4px;margin:18px 0;color:#20231b">${code}</p>
+          <p>Este código vence en 10 minutos.</p>
+          <p style="color:#6d7164">Sotto il cielo d’Italia</p>
+        </div>
+      `,
+      text: `Hola ${name}, tu código de confirmación de Tuscolo Cleaning Tracker es ${code}. Vence en 10 minutos.`,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Resend error: ${body}`);
+  }
+
+  return { sent: true };
+}
+
 function notFound(res) {
   sendJson(res, 404, { error: "Not found" });
 }
@@ -140,8 +180,8 @@ async function handleApi(req, res, url) {
       user: { id: `user-${randomBytes(8).toString("hex")}`, name, email, language, role: "employee", passwordHash: hashPassword(password) },
     });
 
-    console.log(`[Tuscolo] Verification code for ${email}: ${code}`);
-    sendJson(res, 200, { ok: true, devCode: code });
+    const emailResult = await sendVerificationEmail({ to: String(email), code, name: String(name) });
+    sendJson(res, 200, { ok: true, emailSent: emailResult.sent, devCode: emailResult.devCode });
     return;
   }
 
