@@ -20,8 +20,8 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
   const [mode, setMode] = useState<"login" | "register">("login");
   const [registerStep, setRegisterStep] = useState<"form" | "verify">("form");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("admin@tuscolo.de");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [language, setLanguage] = useState<Language>("es");
   const [showPassword, setShowPassword] = useState(false);
@@ -60,13 +60,8 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
     setLocalError("");
     setNotice("");
     resetRegisterState();
-    if (nextMode === "login") {
-      setEmail("admin@tuscolo.de");
-      setPassword("admin123");
-    } else {
-      setEmail("");
-      setPassword("");
-    }
+    setEmail("");
+    setPassword("");
   };
 
   const validateRegisterForm = () => {
