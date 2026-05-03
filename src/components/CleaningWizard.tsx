@@ -144,6 +144,17 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
     return doneTasks.find((task) => (nextPhotoUrls[task.id]?.length ?? 0) < 3)?.id ?? currentTaskId;
   };
 
+  const nextAvailableCameraTaskId = (currentTaskId: string, nextPhotoUrls: Record<string, string[]>) => {
+    const currentIndex = doneTasks.findIndex((task) => task.id === currentTaskId);
+    const orderedTasks = [...doneTasks.slice(currentIndex + 1), ...doneTasks.slice(0, currentIndex)];
+    return orderedTasks.find((task) => (nextPhotoUrls[task.id]?.length ?? 0) < 3)?.id ?? currentTaskId;
+  };
+
+  const moveToNextCameraTask = () => {
+    if (!cameraTaskId) return;
+    setCameraTaskId(nextAvailableCameraTaskId(cameraTaskId, taskPhotoUrls));
+  };
+
   const capturePhoto = () => {
     if (!cameraTaskId || !videoRef.current) return;
     if (attachedPhotoUrls.length >= maxDailyPhotos || (taskPhotoUrls[cameraTaskId]?.length ?? 0) >= 3) return;
@@ -165,7 +176,10 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
         ...value,
         [cameraTaskId]: [...(value[cameraTaskId] ?? []), photoUrl].slice(0, 3),
       };
-      setCameraTaskId(nextCameraTaskId(cameraTaskId, nextValue));
+      const nextTaskPhotoCount = nextValue[cameraTaskId]?.length ?? 0;
+      if (nextTaskPhotoCount >= 3) {
+        setCameraTaskId(nextCameraTaskId(cameraTaskId, nextValue));
+      }
       return nextValue;
     });
     setPhotoError("");
@@ -319,6 +333,7 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
             onSelectTask={setCameraTaskId}
             onCancel={closeCamera}
             onCapture={capturePhoto}
+            onNextTask={moveToNextCameraTask}
           />
         ) : null}
         {feedback ? (
@@ -396,6 +411,7 @@ type CameraModalProps = {
   onSelectTask: (taskId: string) => void;
   onCancel: () => void;
   onCapture: () => void;
+  onNextTask: () => void;
 };
 
 function CameraModal({
@@ -410,12 +426,20 @@ function CameraModal({
   onSelectTask,
   onCancel,
   onCapture,
+  onNextTask,
 }: CameraModalProps) {
   const { language, t } = useI18n();
+  const taskStripRef = useRef<HTMLDivElement>(null);
   const selectedTask = doneTasks.find((task) => task.id === selectedTaskId);
   const selectedTaskPhotos = taskPhotoUrls[selectedTaskId]?.length ?? 0;
   const reachedSelectedTaskLimit = selectedTaskPhotos >= 3;
   const reachedTotalLimit = totalPhotos >= maxPhotos;
+  const hasNextAvailableTask = doneTasks.some((task) => task.id !== selectedTaskId && (taskPhotoUrls[task.id]?.length ?? 0) < 3);
+
+  useEffect(() => {
+    const activeButton = taskStripRef.current?.querySelector<HTMLButtonElement>("button.active");
+    activeButton?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [selectedTaskId]);
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="camera-title">
@@ -428,7 +452,7 @@ function CameraModal({
           <strong>{totalPhotos}/{maxPhotos}</strong>
           <span>{t("wizard.photoTotal")}</span>
         </div>
-        <div className="camera-task-strip" aria-label={t("wizard.cameraCurrentTask")}>
+        <div className="camera-task-strip" aria-label={t("wizard.cameraCurrentTask")} ref={taskStripRef}>
           {doneTasks.map((task, index) => {
             const count = taskPhotoUrls[task.id]?.length ?? 0;
             return (
@@ -448,6 +472,9 @@ function CameraModal({
         <div className="confirm-actions">
           <button className="secondary-action" type="button" onClick={onCancel}>
             {t("actions.done")}
+          </button>
+          <button className="secondary-action" type="button" onClick={onNextTask} disabled={!hasNextAvailableTask}>
+            {t("actions.nextTask")}
           </button>
           <button className="primary-action" type="button" onClick={onCapture} disabled={Boolean(cameraError) || isCameraStarting || reachedSelectedTaskLimit || reachedTotalLimit}>
             <Camera size={18} />
