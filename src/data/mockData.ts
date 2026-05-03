@@ -11,6 +11,15 @@ export const defaultUsers: AppUser[] = [
     role: "admin",
     assignedSectorIds: ["bar", "kitchen", "service", "spule", "management"],
   },
+  {
+    id: "test-employee-1",
+    name: "Usuario Prueba",
+    email: "prueba@tuscolo.de",
+    password: "prueba123",
+    language: "es",
+    role: "employee",
+    assignedSectorIds: ["bar", "kitchen", "service", "spule"],
+  },
 ];
 
 export const employees = defaultUsers;

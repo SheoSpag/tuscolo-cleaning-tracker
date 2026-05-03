@@ -31,6 +31,15 @@ const defaultUsers = [
     role: "admin",
     assignedSectorIds: ["bar", "kitchen", "service", "spule", "management"],
   },
+  {
+    id: "test-employee-1",
+    name: "Usuario Prueba",
+    email: "prueba@tuscolo.de",
+    password: "prueba123",
+    language: "es",
+    role: "employee",
+    assignedSectorIds: ["bar", "kitchen", "service", "spule"],
+  },
 ];
 const retiredSeedUserIds = new Set(["emp-1", "emp-2", "emp-3", "emp-4"]);
 
@@ -179,7 +188,6 @@ function publicUser(user) {
 }
 
 function normalizeDb(db) {
-  const defaultEmails = new Set(defaultUsers.map((user) => user.email.toLowerCase()));
   const usersWithoutRetiredSeeds = (db.users ?? []).filter((user) => !retiredSeedUserIds.has(user.id));
   const existingIds = new Set(usersWithoutRetiredSeeds.map((user) => user.id));
   const existingEmails = new Set(usersWithoutRetiredSeeds.map((user) => user.email.toLowerCase()));
@@ -187,7 +195,7 @@ function normalizeDb(db) {
     .filter((user) => !existingIds.has(user.id) && !existingEmails.has(user.email.toLowerCase()))
     .map(({ password, ...user }) => ({ ...user, passwordHash: hashPassword(password) }));
 
-  const users = [...missingDefaults, ...usersWithoutRetiredSeeds.filter((user) => !defaultEmails.has(user.email.toLowerCase()) || user.id === "admin-1")];
+  const users = [...missingDefaults, ...usersWithoutRetiredSeeds];
   const seededAdmin = users.find((user) => user.id === "admin-1");
   const defaultAdmin = defaultUsers[0];
   if (seededAdmin) {
@@ -198,6 +206,19 @@ function normalizeDb(db) {
     seededAdmin.assignedSectorIds = normalizeSectorIds(seededAdmin.assignedSectorIds, defaultAdmin.assignedSectorIds);
     if (process.env.INITIAL_ADMIN_PASSWORD && !verifyPassword(process.env.INITIAL_ADMIN_PASSWORD, seededAdmin.passwordHash)) {
       seededAdmin.passwordHash = hashPassword(process.env.INITIAL_ADMIN_PASSWORD);
+    }
+  }
+
+  const seededTestUser = users.find((user) => user.id === "test-employee-1");
+  const defaultTestUser = defaultUsers.find((user) => user.id === "test-employee-1");
+  if (seededTestUser && defaultTestUser) {
+    seededTestUser.name = seededTestUser.name || defaultTestUser.name;
+    seededTestUser.email = seededTestUser.email || defaultTestUser.email;
+    seededTestUser.language = normalizeLanguage(seededTestUser.language || defaultTestUser.language);
+    seededTestUser.role = "employee";
+    seededTestUser.assignedSectorIds = normalizeSectorIds(seededTestUser.assignedSectorIds, defaultTestUser.assignedSectorIds);
+    if (!seededTestUser.passwordHash || !verifyPassword(defaultTestUser.password, seededTestUser.passwordHash)) {
+      seededTestUser.passwordHash = hashPassword(defaultTestUser.password);
     }
   }
 
