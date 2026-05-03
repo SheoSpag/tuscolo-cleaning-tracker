@@ -1,5 +1,5 @@
-import { Check, ImagePlus, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { Camera, Check, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { Area, CleaningRecord, CleaningTask, Employee } from "../types";
 import { useI18n } from "../i18n/I18nContext";
 import { translateTask } from "../i18n/taskTranslations";
@@ -21,11 +21,71 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
   const [failureReason, setFailureReason] = useState("");
   const [failedTaskReasons, setFailedTaskReasons] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState("");
+  const [cameraTaskId, setCameraTaskId] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState("");
+  const [isCameraStarting, setIsCameraStarting] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const currentTask = area.tasks[stepIndex];
   const finishedChecklist = stepIndex >= area.tasks.length;
   const hasFailures = failedTasks.length > 0;
   const currentPhotoUrl = currentTask ? taskPhotoUrls[currentTask.id] : null;
   const attachedPhotoUrls = Object.values(taskPhotoUrls);
+
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  };
+
+  useEffect(() => {
+    if (!cameraTaskId) {
+      return undefined;
+    }
+
+    let active = true;
+    const startCamera = async () => {
+      setIsCameraStarting(true);
+      setCameraError("");
+      stopCamera();
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError(t("errors.cameraUnavailable"));
+        setIsCameraStarting(false);
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
+        });
+
+        if (!active) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => undefined);
+        }
+      } catch {
+        setCameraError(t("errors.cameraPermission"));
+      } finally {
+        if (active) {
+          setIsCameraStarting(false);
+        }
+      }
+    };
+
+    void startCamera();
+
+    return () => {
+      active = false;
+      stopCamera();
+    };
+  }, [cameraTaskId]);
 
   const showFeedback = (message: string) => {
     setFeedback(message);
@@ -112,26 +172,47 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
     });
   };
 
-  const handlePhotoChange = (taskId: string, file?: File) => {
-    if (!file) {
-      setTaskPhotoUrls(({ [taskId]: _removed, ...rest }) => rest);
+  const openCamera = (taskId: string) => {
+    setCameraTaskId(taskId);
+  };
+
+  const closeCamera = () => {
+    setCameraTaskId(null);
+    setCameraError("");
+    stopCamera();
+  };
+
+  const capturePhoto = () => {
+    if (!cameraTaskId || !videoRef.current) {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setTaskPhotoUrls((value) => ({
-        ...value,
-        [taskId]: String(reader.result),
-      }));
-      setPendingAnswer(null);
-      showFeedback(t("feedback.photoUploaded"));
-    };
-    reader.readAsDataURL(file);
+    const video = videoRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setTaskPhotoUrls((value) => ({
+      ...value,
+      [cameraTaskId]: canvas.toDataURL("image/jpeg", 0.88),
+    }));
+    setPendingAnswer(null);
+    closeCamera();
+    showFeedback(t("feedback.photoTaken"));
   };
 
   const removePhoto = (taskId: string) => {
     setTaskPhotoUrls(({ [taskId]: _removed, ...rest }) => rest);
+  };
+
+  const cancelFailureReason = () => {
+    setPendingFailureTask(null);
+    setFailureReason("");
   };
 
   if (finishedChecklist && hasFailures) {
@@ -202,34 +283,22 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
             <div className="photo-loaded-card">
               <img src={currentPhotoUrl} alt={t("fields.photo")} />
               <div>
-                <span>{t("feedback.photoUploaded")}</span>
-                <label className="text-file-action">
-                  <ImagePlus size={17} />
+                <span>{t("feedback.photoTaken")}</span>
+                <button className="text-file-action" type="button" onClick={() => openCamera(currentTask.id)}>
+                  <Camera size={17} />
                   {t("actions.changePhoto")}
-                  <input
-                    className="file-input-hidden"
-                    type="file"
-                    accept="image/*"
-                    onChange={(event) => handlePhotoChange(currentTask.id, event.target.files?.[0])}
-                  />
-                </label>
+                </button>
               </div>
               <button className="icon-action danger-icon" type="button" onClick={() => removePhoto(currentTask.id)} aria-label={t("actions.removePhoto")}>
                 <Trash2 size={18} />
               </button>
             </div>
           ) : (
-            <label className="file-drop compact-drop">
-              <ImagePlus size={24} />
+            <button className="file-drop compact-drop camera-trigger" type="button" onClick={() => openCamera(currentTask.id)}>
+              <Camera size={24} />
               <span>{t("wizard.stepPhotoHelp")}</span>
-              <strong>{t("actions.attachPhoto")}</strong>
-              <input
-                className="file-input-hidden"
-                type="file"
-                accept="image/*"
-                onChange={(event) => handlePhotoChange(currentTask.id, event.target.files?.[0])}
-              />
-            </label>
+              <strong>{t("actions.takePhoto")}</strong>
+            </button>
           )}
         </>
       ) : null}
@@ -248,8 +317,8 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
           <div className="confirm-no-photo">
             <h3 id="confirm-no-photo-title">{t("wizard.confirmNoPhoto")}</h3>
             <div className="confirm-actions">
-              <button className="secondary-action" type="button" onClick={() => setPendingAnswer(null)}>
-                {t("actions.attachPhoto")}
+              <button className="secondary-action" type="button" onClick={() => currentTask && openCamera(currentTask.id)}>
+                {t("actions.takePhoto")}
               </button>
               <button className="primary-action" type="button" onClick={() => advanceWithAnswer(pendingAnswer, { withoutPhoto: true })}>
                 {t("actions.continueWithoutPhoto")}
@@ -272,10 +341,39 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
                 rows={4}
               />
             </label>
-            <button className="primary-action" type="button" onClick={saveFailureReason}>
-              <Check size={18} />
-              {t("actions.saveReason")}
-            </button>
+            <div className="confirm-actions">
+              <button className="secondary-action" type="button" onClick={cancelFailureReason}>
+                {t("actions.back")}
+              </button>
+              <button className="primary-action" type="button" onClick={saveFailureReason}>
+                <Check size={18} />
+                {t("actions.saveReason")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {cameraTaskId ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="camera-title">
+          <div className="camera-modal">
+            <div>
+              <h3 id="camera-title">{t("wizard.cameraTitle")}</h3>
+              <p className="muted">{t("wizard.cameraHelp")}</p>
+            </div>
+            <div className="camera-preview">
+              {cameraError ? <p className="error-text">{cameraError}</p> : null}
+              {!cameraError ? <video ref={videoRef} playsInline muted /> : null}
+              {isCameraStarting ? <span>{t("wizard.cameraStarting")}</span> : null}
+            </div>
+            <div className="confirm-actions">
+              <button className="secondary-action" type="button" onClick={closeCamera}>
+                {t("actions.cancel")}
+              </button>
+              <button className="primary-action" type="button" onClick={capturePhoto} disabled={Boolean(cameraError) || isCameraStarting}>
+                <Camera size={18} />
+                {t("actions.capturePhoto")}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

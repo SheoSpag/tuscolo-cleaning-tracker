@@ -187,7 +187,13 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
         <span>{t("app.slogan")}</span>
       </div>
 
-      <div className="auth-panel">
+      <form
+        className="auth-panel"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+      >
         <div className="auth-tabs">
           <button className={mode === "login" ? "active" : ""} type="button" onClick={() => switchMode("login")}>
             <LogIn size={17} />
@@ -213,7 +219,7 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
             {notice ? <p className="notice-text">{notice}</p> : null}
             {visibleError ? <p className="error-text">{visibleError}</p> : null}
 
-            <button className="primary-action" type="button" onClick={submit}>
+            <button className="primary-action" type="submit">
               <CheckCircle2 size={18} />
               {t("auth.verifyAndLogin")}
             </button>
@@ -290,14 +296,14 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
 
             {visibleError ? <p className="error-text">{visibleError}</p> : null}
 
-            <button className="primary-action" type="button" onClick={submit}>
+            <button className="primary-action" type="submit">
               {mode === "login" ? <LogIn size={18} /> : <UserPlus size={18} />}
               {mode === "login" ? t("auth.login") : t("auth.register")}
             </button>
 
           </>
         )}
-      </div>
+      </form>
     </section>
   );
 }
