@@ -1,16 +1,33 @@
 import type { AppUser, CleaningRecord, CleaningTask } from "./types";
 
 export type ApiState = {
+  currentUser: AppUser;
   users: AppUser[];
   tasks: CleaningTask[];
   records: CleaningRecord[];
 };
 
+const tokenStorageKey = "tuscolo-session-token";
+
+export function setAuthToken(token: string) {
+  localStorage.setItem(tokenStorageKey, token);
+}
+
+export function clearAuthToken() {
+  localStorage.removeItem(tokenStorageKey);
+}
+
+function getAuthToken() {
+  return localStorage.getItem(tokenStorageKey);
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getAuthToken();
   const response = await fetch(path, {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
   });
@@ -26,7 +43,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   state: () => request<ApiState>("/api/state"),
   login: (email: string, password: string) =>
-    request<{ user: AppUser }>("/api/auth/login", {
+    request<{ user: AppUser; token: string }>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
@@ -36,7 +53,7 @@ export const api = {
       body: JSON.stringify(input),
     }),
   verifyRegister: (email: string, code: string) =>
-    request<{ user: AppUser }>("/api/auth/register/verify", {
+    request<{ user: AppUser; token: string }>("/api/auth/register/verify", {
       method: "POST",
       body: JSON.stringify({ email, code }),
     }),

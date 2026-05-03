@@ -1,4 +1,4 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
 import http from "node:http";
@@ -13,23 +13,147 @@ const port = Number(process.env.PORT || 8787);
 const host = process.env.HOST || "127.0.0.1";
 const resendApiKey = process.env.RESEND_API_KEY;
 const emailFrom = process.env.EMAIL_FROM || "Tuscolo <onboarding@resend.dev>";
+const sessionSecret = process.env.SESSION_SECRET || "dev-only-change-me";
+const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 10 * 1024 * 1024);
+const maxRecordPhotoBytes = Number(process.env.MAX_RECORD_PHOTO_BYTES || 7 * 1024 * 1024);
+const supportedLanguages = new Set(["es", "de", "en", "it"]);
 const verificationCodes = new Map();
+const rateLimits = new Map();
 
 const defaultUsers = [
-  { id: "admin-1", name: "Tuscolo Admin", email: "admin@tuscolo.de", password: "admin123", language: "es", role: "admin" },
+  {
+    id: "admin-1",
+    name: process.env.INITIAL_ADMIN_NAME || "Tuscolo Admin",
+    email: process.env.INITIAL_ADMIN_EMAIL || "admin@tuscolo.de",
+    password: process.env.INITIAL_ADMIN_PASSWORD || "admin123",
+    language: normalizeLanguage(process.env.INITIAL_ADMIN_LANGUAGE),
+    role: "admin",
+  },
 ];
 const retiredSeedUserIds = new Set(["emp-1", "emp-2", "emp-3", "emp-4"]);
 
+function normalizeLanguage(language) {
+  return supportedLanguages.has(String(language)) ? String(language) : "es";
+}
+
+function httpError(message, statusCode) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
+function base64url(input) {
+  return Buffer.from(input).toString("base64url");
+}
+
 function hashPassword(password, salt = randomBytes(16).toString("hex")) {
-  const hash = createHash("sha256").update(`${salt}:${password}`).digest("hex");
-  return `${salt}:${hash}`;
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return `scrypt:${salt}:${hash}`;
 }
 
 function verifyPassword(password, storedHash) {
-  const [salt, hash] = String(storedHash).split(":");
+  const parts = String(storedHash).split(":");
+
+  if (parts[0] === "scrypt") {
+    const [, salt, hash] = parts;
+    if (!salt || !hash) return false;
+    const candidate = scryptSync(password, salt, 64).toString("hex");
+    if (candidate.length !== hash.length) return false;
+    return timingSafeEqual(Buffer.from(candidate), Buffer.from(hash));
+  }
+
+  const [salt, hash] = parts;
   if (!salt || !hash) return false;
-  const candidate = hashPassword(password, salt).split(":")[1];
+  const candidate = createHash("sha256").update(`${salt}:${password}`).digest("hex");
+  if (candidate.length !== hash.length) return false;
   return timingSafeEqual(Buffer.from(candidate), Buffer.from(hash));
+}
+
+function signToken(payload) {
+  const header = base64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const body = base64url(JSON.stringify(payload));
+  const signature = createHmac("sha256", sessionSecret).update(`${header}.${body}`).digest("base64url");
+  return `${header}.${body}.${signature}`;
+}
+
+function verifyToken(token) {
+  try {
+    const [header, body, signature] = String(token).split(".");
+    if (!header || !body || !signature) return null;
+    const expected = createHmac("sha256", sessionSecret).update(`${header}.${body}`).digest("base64url");
+    if (signature.length !== expected.length) return null;
+    if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    if (!payload.exp || payload.exp < Date.now()) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function createSession(user) {
+  return signToken({
+    sub: user.id,
+    role: user.role,
+    exp: Date.now() + 1000 * 60 * 60 * 24 * 30,
+  });
+}
+
+function getBearerToken(req) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith("Bearer ")) return null;
+  return header.slice("Bearer ".length);
+}
+
+function getAuthUser(req, db) {
+  const token = getBearerToken(req);
+  if (!token) return null;
+  const payload = verifyToken(token);
+  if (!payload?.sub) return null;
+  return db.users.find((user) => user.id === payload.sub) ?? null;
+}
+
+function estimateDataUrlBytes(value) {
+  const match = String(value).match(/^data:[^;]+;base64,(.+)$/);
+  if (!match) return 0;
+  return Math.floor((match[1].length * 3) / 4);
+}
+
+function validateRecordPayload(record) {
+  if (!record || typeof record !== "object") return "Invalid record";
+  if (!record.id || !record.employeeId || !record.areaId || !record.createdAt) return "Missing record fields";
+  if (record.status !== "completed" && record.status !== "incomplete") return "Invalid record status";
+  const photos = Array.isArray(record.photoUrls) ? record.photoUrls : record.photoUrl ? [record.photoUrl] : [];
+  const totalPhotoBytes = photos.reduce((sum, photoUrl) => sum + estimateDataUrlBytes(photoUrl), 0);
+  if (totalPhotoBytes > maxRecordPhotoBytes) return "Photos too large";
+  return null;
+}
+
+function validateTasksPayload(tasks) {
+  if (!Array.isArray(tasks)) return "Tasks must be an array";
+  const seenIds = new Set();
+  for (const task of tasks) {
+    if (!task || typeof task !== "object") return "Invalid task";
+    if (!task.id || !task.areaId || !task.question) return "Missing task fields";
+    if (task.frequency !== "daily" && task.frequency !== "weekly") return "Invalid task frequency";
+    if (seenIds.has(task.id)) return "Duplicated task id";
+    seenIds.add(task.id);
+  }
+  return null;
+}
+
+function checkRateLimit(req, bucket, limit, windowMs) {
+  const ip = req.socket.remoteAddress ?? "unknown";
+  const key = `${bucket}:${ip}`;
+  const now = Date.now();
+  const current = rateLimits.get(key);
+  if (!current || current.resetAt < now) {
+    rateLimits.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  current.count += 1;
+  return current.count <= limit;
 }
 
 async function loadSeedTasks() {
@@ -43,21 +167,35 @@ async function loadSeedTasks() {
 }
 
 function publicUser(user) {
-  const { passwordHash, pending, ...safeUser } = user;
+  const { password, passwordHash, pending, ...safeUser } = user;
   return safeUser;
 }
 
 function normalizeDb(db) {
   const defaultEmails = new Set(defaultUsers.map((user) => user.email.toLowerCase()));
   const usersWithoutRetiredSeeds = (db.users ?? []).filter((user) => !retiredSeedUserIds.has(user.id));
+  const existingIds = new Set(usersWithoutRetiredSeeds.map((user) => user.id));
   const existingEmails = new Set(usersWithoutRetiredSeeds.map((user) => user.email.toLowerCase()));
   const missingDefaults = defaultUsers
-    .filter((user) => !existingEmails.has(user.email.toLowerCase()))
+    .filter((user) => !existingIds.has(user.id) && !existingEmails.has(user.email.toLowerCase()))
     .map(({ password, ...user }) => ({ ...user, passwordHash: hashPassword(password) }));
+
+  const users = [...missingDefaults, ...usersWithoutRetiredSeeds.filter((user) => !defaultEmails.has(user.email.toLowerCase()) || user.id === "admin-1")];
+  const seededAdmin = users.find((user) => user.id === "admin-1");
+  const defaultAdmin = defaultUsers[0];
+  if (seededAdmin) {
+    seededAdmin.role = "admin";
+    seededAdmin.name = process.env.INITIAL_ADMIN_NAME || seededAdmin.name || defaultAdmin.name;
+    seededAdmin.email = process.env.INITIAL_ADMIN_EMAIL || seededAdmin.email || defaultAdmin.email;
+    seededAdmin.language = normalizeLanguage(process.env.INITIAL_ADMIN_LANGUAGE || seededAdmin.language);
+    if (process.env.INITIAL_ADMIN_PASSWORD && !verifyPassword(process.env.INITIAL_ADMIN_PASSWORD, seededAdmin.passwordHash)) {
+      seededAdmin.passwordHash = hashPassword(process.env.INITIAL_ADMIN_PASSWORD);
+    }
+  }
 
   return {
     ...db,
-    users: [...missingDefaults, ...usersWithoutRetiredSeeds.filter((user) => !defaultEmails.has(user.email.toLowerCase()) || user.id === "admin-1")],
+    users,
     tasks: db.tasks ?? [],
     records: db.records ?? [],
   };
@@ -91,9 +229,21 @@ async function writeDb(db) {
 
 async function readBody(req) {
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+  let size = 0;
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > maxBodyBytes) {
+      throw httpError("Request body too large", 413);
+    }
+    chunks.push(chunk);
+  }
   const raw = Buffer.concat(chunks).toString("utf8");
-  return raw ? JSON.parse(raw) : {};
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw httpError("Invalid JSON", 400);
+  }
 }
 
 function sendJson(res, status, body) {
@@ -102,7 +252,7 @@ function sendJson(res, status, body) {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
   });
   res.end(payload);
 }
@@ -149,6 +299,25 @@ function notFound(res) {
   sendJson(res, 404, { error: "Not found" });
 }
 
+function requireAuth(req, res, db) {
+  const user = getAuthUser(req, db);
+  if (!user) {
+    sendJson(res, 401, { error: "Unauthorized" });
+    return null;
+  }
+  return user;
+}
+
+function requireAdmin(req, res, db) {
+  const user = requireAuth(req, res, db);
+  if (!user) return null;
+  if (user.role !== "admin") {
+    sendJson(res, 403, { error: "Forbidden" });
+    return null;
+  }
+  return user;
+}
+
 async function handleApi(req, res, url) {
   if (req.method === "OPTIONS") {
     sendJson(res, 204, {});
@@ -158,31 +327,47 @@ async function handleApi(req, res, url) {
   const db = await readDb();
 
   if (req.method === "GET" && url.pathname === "/api/state") {
+    const authUser = requireAuth(req, res, db);
+    if (!authUser) return;
+
+    const isAdmin = authUser.role === "admin";
     sendJson(res, 200, {
-      users: db.users.map(publicUser),
+      currentUser: publicUser(authUser),
+      users: isAdmin ? db.users.map(publicUser) : [publicUser(authUser)],
       tasks: db.tasks,
-      records: db.records,
+      records: isAdmin ? db.records : db.records.filter((record) => record.employeeId === authUser.id),
     });
     return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/auth/login") {
+    if (!checkRateLimit(req, "login", 12, 15 * 60 * 1000)) {
+      sendJson(res, 429, { error: "Too many attempts" });
+      return;
+    }
+
     const { email, password } = await readBody(req);
     const user = db.users.find((item) => item.email.toLowerCase() === String(email).toLowerCase());
     if (!user || !verifyPassword(String(password), user.passwordHash)) {
       sendJson(res, 401, { error: "Invalid credentials" });
       return;
     }
-    sendJson(res, 200, { user: publicUser(user) });
+    sendJson(res, 200, { user: publicUser(user), token: createSession(user) });
     return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/auth/register/start") {
+    if (!checkRateLimit(req, "register", 8, 15 * 60 * 1000)) {
+      sendJson(res, 429, { error: "Too many attempts" });
+      return;
+    }
+
     const { name, email, password, language } = await readBody(req);
-    if (!name || !email || !password || String(password).length <= 6) {
+    if (!name || !email || !password || String(password).length <= 6 || !supportedLanguages.has(String(language))) {
       sendJson(res, 400, { error: "Invalid registration data" });
       return;
     }
+    const normalizedLanguage = normalizeLanguage(language);
     if (db.users.some((user) => user.email.toLowerCase() === String(email).toLowerCase())) {
       sendJson(res, 409, { error: "Email exists" });
       return;
@@ -192,7 +377,7 @@ async function handleApi(req, res, url) {
     verificationCodes.set(String(email).toLowerCase(), {
       code,
       expiresAt: Date.now() + 10 * 60 * 1000,
-      user: { id: `user-${randomBytes(8).toString("hex")}`, name, email, language, role: "employee", passwordHash: hashPassword(password) },
+      user: { id: `user-${randomBytes(8).toString("hex")}`, name, email, language: normalizedLanguage, role: "employee", passwordHash: hashPassword(password) },
     });
 
     const emailResult = await sendVerificationEmail({ to: String(email), code, name: String(name) });
@@ -218,14 +403,18 @@ async function handleApi(req, res, url) {
     db.users.push(pending.user);
     verificationCodes.delete(key);
     await writeDb(db);
-    sendJson(res, 201, { user: publicUser(pending.user) });
+    sendJson(res, 201, { user: publicUser(pending.user), token: createSession(pending.user) });
     return;
   }
 
   if (req.method === "PUT" && url.pathname === "/api/tasks") {
+    const authUser = requireAdmin(req, res, db);
+    if (!authUser) return;
+
     const { tasks } = await readBody(req);
-    if (!Array.isArray(tasks)) {
-      sendJson(res, 400, { error: "Tasks must be an array" });
+    const validationError = validateTasksPayload(tasks);
+    if (validationError) {
+      sendJson(res, 400, { error: validationError });
       return;
     }
     db.tasks = tasks;
@@ -235,7 +424,19 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && url.pathname === "/api/records") {
+    const authUser = requireAuth(req, res, db);
+    if (!authUser) return;
+
     const record = await readBody(req);
+    const validationError = validateRecordPayload(record);
+    if (validationError) {
+      sendJson(res, 400, { error: validationError });
+      return;
+    }
+    if (authUser.role !== "admin" && record.employeeId !== authUser.id) {
+      sendJson(res, 403, { error: "Forbidden" });
+      return;
+    }
     db.records = [record, ...db.records.filter((item) => item.id !== record.id)];
     await writeDb(db);
     sendJson(res, 201, { record });
@@ -244,6 +445,9 @@ async function handleApi(req, res, url) {
 
   const roleMatch = url.pathname.match(/^\/api\/users\/([^/]+)\/role$/);
   if (req.method === "PATCH" && roleMatch) {
+    const authUser = requireAdmin(req, res, db);
+    if (!authUser) return;
+
     const { role } = await readBody(req);
     if (role !== "admin" && role !== "employee") {
       sendJson(res, 400, { error: "Invalid role" });
@@ -252,6 +456,10 @@ async function handleApi(req, res, url) {
     const user = db.users.find((item) => item.id === roleMatch[1]);
     if (!user) {
       notFound(res);
+      return;
+    }
+    if (user.id === authUser.id && role !== "admin") {
+      sendJson(res, 400, { error: "Cannot remove your own admin role" });
       return;
     }
     user.role = role;
@@ -305,10 +513,13 @@ const server = http.createServer(async (req, res) => {
     await serveStatic(req, res, url);
   } catch (error) {
     console.error(error);
-    sendJson(res, 500, { error: "Internal server error" });
+    sendJson(res, error.statusCode ?? 500, { error: error.statusCode ? error.message : "Internal server error" });
   }
 });
 
 server.listen(port, host, () => {
+  if (sessionSecret === "dev-only-change-me") {
+    console.warn("[Tuscolo] SESSION_SECRET is not configured. Set it before using production traffic.");
+  }
   console.log(`Tuscolo backend running on http://${host}:${port}`);
 });

@@ -12,12 +12,11 @@ import { RecordsView } from "./components/RecordsView";
 import { TaskManager } from "./components/TaskManager";
 import { AuthView } from "./components/AuthView";
 import { AdminDashboard } from "./components/AdminDashboard";
-import { api } from "./api";
+import { api, clearAuthToken, setAuthToken, type ApiState } from "./api";
 
 const storageKey = "tuscolo-cleaning-records";
 const taskStorageKey = "tuscolo-cleaning-tasks";
 const usersStorageKey = "tuscolo-users";
-const sessionStorageKey = "tuscolo-session-user";
 
 type Screen = "home" | "wizard" | "final" | "dashboard" | "tasks" | "records";
 
@@ -53,36 +52,29 @@ function loadUsers(): AppUser[] {
 function App() {
   const [language, setLanguage] = useState<Language>("es");
   const [users, setUsers] = useState<AppUser[]>(loadUsers);
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
-    const sessionId = localStorage.getItem(sessionStorageKey);
-    return sessionId ? loadUsers().find((user) => user.id === sessionId) ?? null : null;
-  });
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [selectedAreaId, setSelectedAreaId] = useState("");
-  const [screen, setScreen] = useState<Screen>(() => (currentUser?.role === "admin" ? "dashboard" : "home"));
+  const [screen, setScreen] = useState<Screen>("home");
   const [error, setError] = useState("");
   const [records, setRecords] = useState<CleaningRecord[]>(loadRecords);
   const [tasks, setTasks] = useState<CleaningTask[]>(loadTasks);
   const [lastRecord, setLastRecord] = useState<CleaningRecord | null>(null);
 
+  const applyRemoteState = (state: ApiState) => {
+    setUsers(state.users);
+    setTasks(state.tasks);
+    setRecords(state.records);
+    setCurrentUser(state.currentUser);
+    setSelectedEmployeeId(state.currentUser.id);
+    setLanguage(state.currentUser.language);
+    setScreen(state.currentUser.role === "admin" ? "dashboard" : "home");
+  };
+
   useEffect(() => {
     void api
       .state()
-      .then((state) => {
-        setUsers(state.users);
-        setTasks(state.tasks);
-        setRecords(state.records);
-        const sessionId = localStorage.getItem(sessionStorageKey);
-        if (sessionId) {
-          const sessionUser = state.users.find((user) => user.id === sessionId);
-          if (sessionUser) {
-            setCurrentUser(sessionUser);
-            setSelectedEmployeeId(sessionUser.id);
-            setLanguage(sessionUser.language);
-            setScreen(sessionUser.role === "admin" ? "dashboard" : "home");
-          }
-        }
-      })
+      .then(applyRemoteState)
       .catch(() => undefined);
   }, []);
 
@@ -118,28 +110,14 @@ function App() {
   const login = async (email: string, password: string) => {
     try {
       const result = await api.login(email, password);
-      const user = result.user;
-      setCurrentUser(user);
-      setLanguage(user.language);
-      setSelectedEmployeeId(user.id);
-      setScreen(user.role === "admin" ? "dashboard" : "home");
-      localStorage.setItem(sessionStorageKey, user.id);
+      setAuthToken(result.token);
+      applyRemoteState(await api.state());
       setError("");
       return true;
     } catch {
-      const user = users.find((item) => item.email.toLowerCase() === email.toLowerCase() && item.password === password);
-      if (!user) {
-        setError(translate(language, "errors.invalidLogin"));
-        return false;
-      }
-
-      setCurrentUser(user);
-      setLanguage(user.language);
-      setSelectedEmployeeId(user.id);
-      setScreen(user.role === "admin" ? "dashboard" : "home");
-      localStorage.setItem(sessionStorageKey, user.id);
-      setError("");
-      return true;
+      clearAuthToken();
+      setError(translate(language, "errors.invalidLogin"));
+      return false;
     }
   };
 
@@ -158,13 +136,8 @@ function App() {
   const verifyRegister = async (email: string, code: string) => {
     try {
       const result = await api.verifyRegister(email, code);
-      const user = result.user;
-      setUsers((value) => [...value.filter((item) => item.id !== user.id), user]);
-      setCurrentUser(user);
-      setLanguage(user.language);
-      setSelectedEmployeeId(user.id);
-      setScreen(user.role === "admin" ? "dashboard" : "home");
-      localStorage.setItem(sessionStorageKey, user.id);
+      setAuthToken(result.token);
+      applyRemoteState(await api.state());
       setError("");
       return true;
     } catch {
@@ -188,7 +161,7 @@ function App() {
     setSelectedEmployeeId("");
     setSelectedAreaId("");
     setScreen("home");
-    localStorage.removeItem(sessionStorageKey);
+    clearAuthToken();
   };
 
   const startFlow = () => {
