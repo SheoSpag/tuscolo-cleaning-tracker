@@ -9,7 +9,7 @@ export const defaultUsers: AppUser[] = [
     password: "admin123",
     language: "es",
     role: "admin",
-    assignedSectorIds: ["bar", "kitchen", "service", "spule", "management"],
+    assignedSectorIds: ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule", "management"],
   },
   {
     id: "test-employee-1",
@@ -18,7 +18,7 @@ export const defaultUsers: AppUser[] = [
     password: "prueba123",
     language: "es",
     role: "employee",
-    assignedSectorIds: ["bar", "kitchen", "service", "spule"],
+    assignedSectorIds: ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule"],
   },
 ];
 

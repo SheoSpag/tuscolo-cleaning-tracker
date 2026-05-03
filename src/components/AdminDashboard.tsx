@@ -36,7 +36,7 @@ export function AdminDashboard({ records, areas, tasks, users, currentUser, onUs
   const completionRate = monthRecords.length ? Math.round((completed / monthRecords.length) * 100) : 0;
   const operationalAreas = areas.filter((area) => area.id !== "management");
   const weeklyTaskTotal = operationalAreas.reduce((sum, area) => sum + area.tasks.filter((task) => task.frequency === "weekly").length, 0);
-  const weeklyDone = new Set(weeklyRecords.flatMap((record) => record.taskResults?.map((result) => result.taskId) ?? [])).size;
+  const weeklyDone = new Set(weeklyRecords.flatMap((record) => record.taskResults?.map((result) => `${record.areaId}:${result.taskId}`) ?? [])).size;
   const weeklyRate = weeklyTaskTotal ? Math.round((weeklyDone / weeklyTaskTotal) * 100) : 0;
 
   const areaStats = areas.map((area) => {

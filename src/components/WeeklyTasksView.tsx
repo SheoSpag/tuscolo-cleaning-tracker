@@ -35,10 +35,11 @@ function isCurrentWeek(dateValue: string) {
   return date >= start && date < end;
 }
 
-function weeklyRecordForTask(records: CleaningRecord[], taskId: string) {
+function weeklyRecordForTask(records: CleaningRecord[], areaId: string, taskId: string) {
   return records.find(
     (record) =>
       record.recordType === "weekly" &&
+      record.areaId === areaId &&
       isCurrentWeek(record.createdAt) &&
       record.taskResults?.some((result) => result.taskId === taskId && result.status === "done"),
   );
@@ -48,8 +49,8 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
   const { language, t } = useI18n();
   const weeklyAreas = areas.filter((area) => area.id !== "management");
   const weeklyTasks = weeklyAreas.flatMap((area) => area.tasks.filter((task) => task.frequency === "weekly").map((task) => ({ area, task })));
-  const uniqueWeeklyTasks = [...new Map(weeklyTasks.map((item) => [item.task.id, item])).values()];
-  const doneCount = uniqueWeeklyTasks.filter((item) => weeklyRecordForTask(records, item.task.id)).length;
+  const uniqueWeeklyTasks = [...new Map(weeklyTasks.map((item) => [`${item.area.id}:${item.task.id}`, item])).values()];
+  const doneCount = uniqueWeeklyTasks.filter((item) => weeklyRecordForTask(records, item.area.id, item.task.id)).length;
   const progress = uniqueWeeklyTasks.length ? Math.round((doneCount / uniqueWeeklyTasks.length) * 100) : 0;
   const managementMode = areas.some((area) => area.id === "management");
   const [activeTask, setActiveTask] = useState<WeeklyTaskItem | null>(null);
@@ -227,11 +228,11 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
       {uniqueWeeklyTasks.length ? (
         <div className="weekly-task-list">
           {uniqueWeeklyTasks.map((item) => {
-            const doneRecord = weeklyRecordForTask(records, item.task.id);
+            const doneRecord = weeklyRecordForTask(records, item.area.id, item.task.id);
             const user = doneRecord ? users.find((candidate) => candidate.id === doneRecord.employeeId) : null;
 
             return (
-              <article className="weekly-task-row" key={item.task.id}>
+              <article className="weekly-task-row" key={`${item.area.id}-${item.task.id}`}>
                 <div>
                   <span>{t(item.area.nameKey)}</span>
                   <strong>{translateTask(item.task, language)}</strong>

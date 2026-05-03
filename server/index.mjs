@@ -17,7 +17,10 @@ const sessionSecret = process.env.SESSION_SECRET || "dev-only-change-me";
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 40 * 1024 * 1024);
 const maxRecordPhotoBytes = Number(process.env.MAX_RECORD_PHOTO_BYTES || 32 * 1024 * 1024);
 const supportedLanguages = new Set(["es", "de", "en", "it"]);
-const supportedSectorIds = new Set(["bar", "kitchen", "service", "spule", "management"]);
+const supportedSectorIds = new Set(["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule", "management"]);
+const legacySectorAssignments = {
+  kitchen: ["kitchen-pasta", "kitchen-salad", "kitchen-pizza"],
+};
 const verificationCodes = new Map();
 const rateLimits = new Map();
 
@@ -29,7 +32,7 @@ const defaultUsers = [
     password: process.env.INITIAL_ADMIN_PASSWORD || "admin123",
     language: normalizeLanguage(process.env.INITIAL_ADMIN_LANGUAGE),
     role: "admin",
-    assignedSectorIds: ["bar", "kitchen", "service", "spule", "management"],
+    assignedSectorIds: ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule", "management"],
   },
   {
     id: "test-employee-1",
@@ -38,7 +41,7 @@ const defaultUsers = [
     password: "prueba123",
     language: "es",
     role: "employee",
-    assignedSectorIds: ["bar", "kitchen", "service", "spule"],
+    assignedSectorIds: ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule"],
   },
 ];
 const retiredSeedUserIds = new Set(["emp-1", "emp-2", "emp-3", "emp-4"]);
@@ -49,7 +52,14 @@ function normalizeLanguage(language) {
 
 function normalizeSectorIds(sectorIds, fallback = []) {
   if (!Array.isArray(sectorIds)) return fallback;
-  return [...new Set(sectorIds.map(String).filter((sectorId) => supportedSectorIds.has(sectorId)))];
+  return [
+    ...new Set(
+      sectorIds
+        .map(String)
+        .flatMap((sectorId) => legacySectorAssignments[sectorId] ?? [sectorId])
+        .filter((sectorId) => supportedSectorIds.has(sectorId)),
+    ),
+  ];
 }
 
 function httpError(message, statusCode) {

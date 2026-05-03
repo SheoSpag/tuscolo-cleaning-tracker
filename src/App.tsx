@@ -14,7 +14,7 @@ import { AuthView } from "./components/AuthView";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { WeeklyTasksView } from "./components/WeeklyTasksView";
 import { api, clearAuthToken, setAuthToken, type ApiState } from "./api";
-import { buildCleaningGroups } from "./data/cleaningGroups";
+import { buildCleaningGroups, isOperationalGroupId, isTaskManagerGroupId, isVisibleGroupId, normalizeGroupAssignments } from "./data/cleaningGroups";
 
 const storageKey = "tuscolo-cleaning-records";
 const taskStorageKey = "tuscolo-cleaning-tasks";
@@ -45,9 +45,12 @@ function loadUsers(): AppUser[] {
     const raw = localStorage.getItem(usersStorageKey);
     const storedUsers = raw ? (JSON.parse(raw) as AppUser[]) : [];
     const storedEmails = new Set(storedUsers.map((user) => user.email.toLowerCase()));
-    return [...defaultUsers.filter((user) => !storedEmails.has(user.email.toLowerCase())), ...storedUsers];
+    return [...defaultUsers.filter((user) => !storedEmails.has(user.email.toLowerCase())), ...storedUsers].map((user) => ({
+      ...user,
+      assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds),
+    }));
   } catch {
-    return defaultUsers;
+    return defaultUsers.map((user) => ({ ...user, assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds) }));
   }
 }
 
@@ -64,7 +67,7 @@ function App() {
   const [lastRecord, setLastRecord] = useState<CleaningRecord | null>(null);
 
   const applyRemoteState = (state: ApiState) => {
-    setUsers(state.users);
+    setUsers(state.users.map((user) => ({ ...user, assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds) })));
     setTasks(state.tasks);
     setRecords(state.records);
     setCurrentUser(state.currentUser);
@@ -85,12 +88,14 @@ function App() {
     [tasks],
   );
   const areas = useMemo(() => buildCleaningGroups(tasks), [tasks]);
+  const visibleAreas = useMemo(() => areas.filter((area) => isVisibleGroupId(area.id)), [areas]);
+  const taskManagerAreas = useMemo(() => areas.filter((area) => isTaskManagerGroupId(area.id)), [areas]);
   const availableAreas = useMemo(() => {
-    if (!currentUser) return areas;
-    if (currentUser.role === "admin") return areas;
-    const assignedSectorIds = currentUser.assignedSectorIds ?? [];
-    return areas.filter((area) => assignedSectorIds.includes(area.id));
-  }, [areas, currentUser]);
+    if (!currentUser) return visibleAreas;
+    if (currentUser.role === "admin") return visibleAreas;
+    const assignedSectorIds = new Set<string>(normalizeGroupAssignments(currentUser.assignedSectorIds));
+    return visibleAreas.filter((area) => assignedSectorIds.has(area.id));
+  }, [currentUser, visibleAreas]);
 
   const selectedEmployee = users.find((employee) => employee.id === selectedEmployeeId);
   const selectedArea = availableAreas.find((area) => area.id === selectedAreaId);
@@ -152,15 +157,16 @@ function App() {
   };
 
   const updateUsers = (nextUsers: AppUser[]) => {
-    const changedUsers = nextUsers.filter((nextUser) => {
+    const normalizedUsers = nextUsers.map((user) => ({ ...user, assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds) }));
+    const changedUsers = normalizedUsers.filter((nextUser) => {
       const previousUser = users.find((user) => user.id === nextUser.id);
       return previousUser?.role !== nextUser.role || JSON.stringify(previousUser?.assignedSectorIds ?? []) !== JSON.stringify(nextUser.assignedSectorIds ?? []);
     });
-    setUsers(nextUsers);
-    localStorage.setItem(usersStorageKey, JSON.stringify(nextUsers));
+    setUsers(normalizedUsers);
+    localStorage.setItem(usersStorageKey, JSON.stringify(normalizedUsers));
     void Promise.all(changedUsers.map((user) => api.updateUserRole(user.id, user.role, user.assignedSectorIds))).catch(() => undefined);
     if (currentUser) {
-      setCurrentUser(nextUsers.find((user) => user.id === currentUser.id) ?? currentUser);
+      setCurrentUser(normalizedUsers.find((user) => user.id === currentUser.id) ?? currentUser);
     }
   };
 
@@ -252,13 +258,13 @@ function App() {
           </nav>
         ) : null}
         {currentUser?.role === "admin" && screen === "dashboard" ? (
-          <AdminDashboard records={records} areas={areas} tasks={tasks} users={users} currentUser={currentUser} onUsersChange={updateUsers} />
+          <AdminDashboard records={records} areas={visibleAreas} tasks={tasks} users={users} currentUser={currentUser} onUsersChange={updateUsers} />
         ) : null}
         {currentUser && screen === "home" ? (
           <>
             <Home
               employees={users}
-              areas={availableAreas.filter((area) => area.id !== "management")}
+              areas={availableAreas.filter((area) => isOperationalGroupId(area.id))}
               selectedEmployeeId={currentUser?.id ?? selectedEmployeeId}
               selectedAreaId={selectedAreaId}
               lockedEmployee={currentUser}
@@ -267,15 +273,15 @@ function App() {
               onAreaChange={setSelectedAreaId}
               onStart={startFlow}
             />
-            <WeeklyTasksView areas={availableAreas} allAreas={areas} records={records} users={users} employee={currentUser} onSave={saveRecord} />
+            <WeeklyTasksView areas={availableAreas} allAreas={visibleAreas} records={records} users={users} employee={currentUser} onSave={saveRecord} />
           </>
         ) : null}
         {screen === "wizard" && selectedArea && (currentUser ?? selectedEmployee) ? (
           <CleaningWizard area={{ ...selectedArea, tasks: selectedArea.tasks.filter((task) => task.frequency === "daily") }} employee={(currentUser ?? selectedEmployee)!} onSave={saveRecord} />
         ) : null}
         {screen === "final" && lastRecord ? <FinalScreen record={lastRecord} onRestart={restart} /> : null}
-        {currentUser?.role === "admin" && screen === "tasks" ? <TaskManager areas={areas.filter((area) => area.id !== "management")} tasks={tasks} onTasksChange={updateTasks} /> : null}
-        {currentUser?.role === "admin" && screen === "records" ? <RecordsView records={records} areas={[...areas, ...baseAreasWithTasks]} employees={users} /> : null}
+        {currentUser?.role === "admin" && screen === "tasks" ? <TaskManager areas={taskManagerAreas} tasks={tasks} onTasksChange={updateTasks} /> : null}
+        {currentUser?.role === "admin" && screen === "records" ? <RecordsView records={records} areas={[...visibleAreas, ...baseAreasWithTasks]} employees={users} /> : null}
       </main>
     </I18nContext.Provider>
   );
