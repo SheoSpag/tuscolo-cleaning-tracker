@@ -700,6 +700,75 @@ input:focus {
   margin: 0;
 }
 
+.camera-session-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--color-soft);
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+}
+
+.camera-session-summary strong {
+  color: var(--color-secondary-dark);
+  font-size: 1.3rem;
+}
+
+.camera-session-summary span {
+  color: var(--color-muted);
+  font-weight: 800;
+}
+
+.camera-task-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.camera-task-strip button {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  min-width: 58px;
+  min-height: 48px;
+  color: var(--color-secondary-dark);
+  background: var(--color-soft);
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  font-weight: 900;
+}
+
+.camera-task-strip button.active {
+  color: white;
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+}
+
+.camera-task-strip button:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+.camera-task-strip span {
+  font-size: 0.8rem;
+}
+
+.camera-task-strip strong {
+  font-size: 0.88rem;
+}
+
+.camera-current-task {
+  padding: 10px 12px;
+  color: var(--color-ink);
+  background: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  font-weight: 800;
+}
+
 .camera-preview {
   position: relative;
   display: grid;
