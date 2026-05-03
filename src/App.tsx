@@ -12,7 +12,9 @@ import { RecordsView } from "./components/RecordsView";
 import { TaskManager } from "./components/TaskManager";
 import { AuthView } from "./components/AuthView";
 import { AdminDashboard } from "./components/AdminDashboard";
+import { WeeklyTasksView } from "./components/WeeklyTasksView";
 import { api, clearAuthToken, setAuthToken, type ApiState } from "./api";
+import { buildCleaningGroups } from "./data/cleaningGroups";
 
 const storageKey = "tuscolo-cleaning-records";
 const taskStorageKey = "tuscolo-cleaning-tasks";
@@ -78,17 +80,20 @@ function App() {
       .catch(() => undefined);
   }, []);
 
-  const areas = useMemo(
-    () =>
-      baseAreas.map((area) => ({
-        ...area,
-        tasks: tasks.filter((task) => task.areaId === area.id),
-      })),
+  const baseAreasWithTasks = useMemo(
+    () => baseAreas.map((area) => ({ ...area, tasks: tasks.filter((task) => task.areaId === area.id) })),
     [tasks],
   );
+  const areas = useMemo(() => buildCleaningGroups(tasks), [tasks]);
+  const availableAreas = useMemo(() => {
+    if (!currentUser) return areas;
+    if (currentUser.role === "admin") return areas;
+    const assignedSectorIds = currentUser.assignedSectorIds ?? [];
+    return areas.filter((area) => assignedSectorIds.includes(area.id));
+  }, [areas, currentUser]);
 
   const selectedEmployee = users.find((employee) => employee.id === selectedEmployeeId);
-  const selectedArea = areas.find((area) => area.id === selectedAreaId);
+  const selectedArea = availableAreas.find((area) => area.id === selectedAreaId);
 
   const i18nValue = useMemo(
     () => ({
@@ -147,10 +152,13 @@ function App() {
   };
 
   const updateUsers = (nextUsers: AppUser[]) => {
-    const changedUsers = nextUsers.filter((nextUser) => users.find((user) => user.id === nextUser.id)?.role !== nextUser.role);
+    const changedUsers = nextUsers.filter((nextUser) => {
+      const previousUser = users.find((user) => user.id === nextUser.id);
+      return previousUser?.role !== nextUser.role || JSON.stringify(previousUser?.assignedSectorIds ?? []) !== JSON.stringify(nextUser.assignedSectorIds ?? []);
+    });
     setUsers(nextUsers);
     localStorage.setItem(usersStorageKey, JSON.stringify(nextUsers));
-    void Promise.all(changedUsers.map((user) => api.updateUserRole(user.id, user.role))).catch(() => undefined);
+    void Promise.all(changedUsers.map((user) => api.updateUserRole(user.id, user.role, user.assignedSectorIds))).catch(() => undefined);
     if (currentUser) {
       setCurrentUser(nextUsers.find((user) => user.id === currentUser.id) ?? currentUser);
     }
@@ -172,7 +180,8 @@ function App() {
       return;
     }
 
-    if (selectedArea.tasks.length === 0) {
+    const dailyTasks = selectedArea.tasks.filter((task) => task.frequency === "daily");
+    if (dailyTasks.length === 0 || selectedArea.id === "management") {
       setError(translate(language, "errors.noTasks"));
       return;
     }
@@ -246,24 +255,27 @@ function App() {
           <AdminDashboard records={records} areas={areas} tasks={tasks} users={users} currentUser={currentUser} onUsersChange={updateUsers} />
         ) : null}
         {currentUser && screen === "home" ? (
-          <Home
-            employees={users}
-            areas={areas}
-            selectedEmployeeId={currentUser?.id ?? selectedEmployeeId}
-            selectedAreaId={selectedAreaId}
-            lockedEmployee={currentUser}
-            error={error}
-            onEmployeeChange={handleEmployeeChange}
-            onAreaChange={setSelectedAreaId}
-            onStart={startFlow}
-          />
+          <>
+            <Home
+              employees={users}
+              areas={availableAreas.filter((area) => area.id !== "management")}
+              selectedEmployeeId={currentUser?.id ?? selectedEmployeeId}
+              selectedAreaId={selectedAreaId}
+              lockedEmployee={currentUser}
+              error={error}
+              onEmployeeChange={handleEmployeeChange}
+              onAreaChange={setSelectedAreaId}
+              onStart={startFlow}
+            />
+            <WeeklyTasksView areas={availableAreas} allAreas={areas} records={records} users={users} employee={currentUser} onSave={saveRecord} />
+          </>
         ) : null}
         {screen === "wizard" && selectedArea && (currentUser ?? selectedEmployee) ? (
-          <CleaningWizard area={selectedArea} employee={(currentUser ?? selectedEmployee)!} onSave={saveRecord} />
+          <CleaningWizard area={{ ...selectedArea, tasks: selectedArea.tasks.filter((task) => task.frequency === "daily") }} employee={(currentUser ?? selectedEmployee)!} onSave={saveRecord} />
         ) : null}
         {screen === "final" && lastRecord ? <FinalScreen record={lastRecord} onRestart={restart} /> : null}
-        {currentUser?.role === "admin" && screen === "tasks" ? <TaskManager areas={areas} tasks={tasks} onTasksChange={updateTasks} /> : null}
-        {currentUser?.role === "admin" && screen === "records" ? <RecordsView records={records} areas={areas} employees={users} /> : null}
+        {currentUser?.role === "admin" && screen === "tasks" ? <TaskManager areas={areas.filter((area) => area.id !== "management")} tasks={tasks} onTasksChange={updateTasks} /> : null}
+        {currentUser?.role === "admin" && screen === "records" ? <RecordsView records={records} areas={[...areas, ...baseAreasWithTasks]} employees={users} /> : null}
       </main>
     </I18nContext.Provider>
   );

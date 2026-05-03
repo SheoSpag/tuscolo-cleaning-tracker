@@ -14,9 +14,10 @@ const host = process.env.HOST || "127.0.0.1";
 const resendApiKey = process.env.RESEND_API_KEY;
 const emailFrom = process.env.EMAIL_FROM || "Tuscolo <onboarding@resend.dev>";
 const sessionSecret = process.env.SESSION_SECRET || "dev-only-change-me";
-const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 10 * 1024 * 1024);
-const maxRecordPhotoBytes = Number(process.env.MAX_RECORD_PHOTO_BYTES || 7 * 1024 * 1024);
+const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 40 * 1024 * 1024);
+const maxRecordPhotoBytes = Number(process.env.MAX_RECORD_PHOTO_BYTES || 32 * 1024 * 1024);
 const supportedLanguages = new Set(["es", "de", "en", "it"]);
+const supportedSectorIds = new Set(["bar", "kitchen", "service", "spule", "management"]);
 const verificationCodes = new Map();
 const rateLimits = new Map();
 
@@ -28,12 +29,18 @@ const defaultUsers = [
     password: process.env.INITIAL_ADMIN_PASSWORD || "admin123",
     language: normalizeLanguage(process.env.INITIAL_ADMIN_LANGUAGE),
     role: "admin",
+    assignedSectorIds: ["bar", "kitchen", "service", "spule", "management"],
   },
 ];
 const retiredSeedUserIds = new Set(["emp-1", "emp-2", "emp-3", "emp-4"]);
 
 function normalizeLanguage(language) {
   return supportedLanguages.has(String(language)) ? String(language) : "es";
+}
+
+function normalizeSectorIds(sectorIds, fallback = []) {
+  if (!Array.isArray(sectorIds)) return fallback;
+  return [...new Set(sectorIds.map(String).filter((sectorId) => supportedSectorIds.has(sectorId)))];
 }
 
 function httpError(message, statusCode) {
@@ -188,9 +195,14 @@ function normalizeDb(db) {
     seededAdmin.name = process.env.INITIAL_ADMIN_NAME || seededAdmin.name || defaultAdmin.name;
     seededAdmin.email = process.env.INITIAL_ADMIN_EMAIL || seededAdmin.email || defaultAdmin.email;
     seededAdmin.language = normalizeLanguage(process.env.INITIAL_ADMIN_LANGUAGE || seededAdmin.language);
+    seededAdmin.assignedSectorIds = normalizeSectorIds(seededAdmin.assignedSectorIds, defaultAdmin.assignedSectorIds);
     if (process.env.INITIAL_ADMIN_PASSWORD && !verifyPassword(process.env.INITIAL_ADMIN_PASSWORD, seededAdmin.passwordHash)) {
       seededAdmin.passwordHash = hashPassword(process.env.INITIAL_ADMIN_PASSWORD);
     }
+  }
+
+  for (const user of users) {
+    user.assignedSectorIds = normalizeSectorIds(user.assignedSectorIds, user.role === "admin" ? defaultAdmin.assignedSectorIds : []);
   }
 
   return {
@@ -377,7 +389,15 @@ async function handleApi(req, res, url) {
     verificationCodes.set(String(email).toLowerCase(), {
       code,
       expiresAt: Date.now() + 10 * 60 * 1000,
-      user: { id: `user-${randomBytes(8).toString("hex")}`, name, email, language: normalizedLanguage, role: "employee", passwordHash: hashPassword(password) },
+      user: {
+        id: `user-${randomBytes(8).toString("hex")}`,
+        name,
+        email,
+        language: normalizedLanguage,
+        role: "employee",
+        assignedSectorIds: [],
+        passwordHash: hashPassword(password),
+      },
     });
 
     const emailResult = await sendVerificationEmail({ to: String(email), code, name: String(name) });
@@ -448,7 +468,7 @@ async function handleApi(req, res, url) {
     const authUser = requireAdmin(req, res, db);
     if (!authUser) return;
 
-    const { role } = await readBody(req);
+    const { role, assignedSectorIds } = await readBody(req);
     if (role !== "admin" && role !== "employee") {
       sendJson(res, 400, { error: "Invalid role" });
       return;
@@ -463,6 +483,9 @@ async function handleApi(req, res, url) {
       return;
     }
     user.role = role;
+    if (Array.isArray(assignedSectorIds)) {
+      user.assignedSectorIds = normalizeSectorIds(assignedSectorIds, user.assignedSectorIds);
+    }
     await writeDb(db);
     sendJson(res, 200, { user: publicUser(user) });
     return;

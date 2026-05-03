@@ -71,8 +71,8 @@ EMAIL_FROM=Tuscolo <onboarding@resend.dev>
 Opcionales:
 
 ```bash
-MAX_BODY_BYTES=10485760
-MAX_RECORD_PHOTO_BYTES=7340032
+MAX_BODY_BYTES=41943040
+MAX_RECORD_PHOTO_BYTES=33554432
 ```
 
 También tenés una plantilla en `.env.example`.
@@ -98,8 +98,12 @@ EMAIL_FROM=Tuscolo <noreply@tudominio.com>
 - Selector de idioma: Español, Alemán, Inglés e Italiano
 - Login/register con confirmación por email
 - Roles admin/empleado
-- Selector de empleado y área para iniciar chequeos
-- Wizard de preguntas por área con respuestas Hecho/No hecho
+- Sectores padre: Bar, Cocina, Service, Spüle y Management
+- Asignación de sectores por empleado desde el panel admin
+- Selector de empleado y sector para iniciar chequeos diarios
+- Wizard diario con respuestas Hecho/No hecho y fotos al final
+- Tareas semanales fuera del wizard diario, con progreso semanal y evidencia fotográfica
+- Validación Management para tareas semanales ya subidas por usuarios
 - Administración de tareas por sector: agregar, editar y eliminar
 - Frecuencia de tarea diaria/semanal
 - Registro incompleto con tareas fallidas y motivo por tarea
@@ -114,4 +118,5 @@ EMAIL_FROM=Tuscolo <noreply@tudominio.com>
 - Reemplazar `server/data/db.json` por una base de datos persistente como Supabase, Neon o PostgreSQL gestionado.
 - Guardar fotos en storage real como Supabase Storage, S3/R2 o similar, en vez de guardar imágenes base64 dentro del JSON.
 - Verificar un dominio propio en Resend para usar un `EMAIL_FROM` real.
+- Implementar cron real para emails automáticos de resumen semanal/mensual con PDF adjunto.
 - Configurar backups, monitoreo y una política de retención de registros/fotos.

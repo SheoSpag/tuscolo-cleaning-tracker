@@ -67,9 +67,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify(record),
     }),
-  updateUserRole: (userId: string, role: AppUser["role"]) =>
+  updateUserRole: (userId: string, role: AppUser["role"], assignedSectorIds?: string[]) =>
     request<{ user: AppUser }>(`/api/users/${userId}/role`, {
       method: "PATCH",
-      body: JSON.stringify({ role }),
+      body: JSON.stringify({ role, assignedSectorIds }),
     }),
 };

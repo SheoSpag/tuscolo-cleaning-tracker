@@ -20,8 +20,8 @@ export function TaskManager({ areas, tasks, onTasksChange }: TaskManagerProps) {
   const [editingFrequency, setEditingFrequency] = useState<CleaningTask["frequency"]>("daily");
 
   const selectedTasks = useMemo(
-    () => tasks.filter((task) => task.areaId === areaId),
-    [areaId, tasks],
+    () => areas.find((area) => area.id === areaId)?.tasks ?? [],
+    [areaId, areas],
   );
 
   const addTask = () => {

@@ -10,27 +10,31 @@ type CleaningWizardProps = {
   onSave: (record: CleaningRecord) => void;
 };
 
+type Answer = "yes" | "no";
+
 export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) {
   const { language, t } = useI18n();
   const [stepIndex, setStepIndex] = useState(0);
-  const [failedTasks, setFailedTasks] = useState<CleaningTask[]>([]);
+  const [answers, setAnswers] = useState<Record<string, Answer>>({});
+  const [failureReasons, setFailureReasons] = useState<Record<string, string>>({});
   const [comment, setComment] = useState("");
-  const [taskPhotoUrls, setTaskPhotoUrls] = useState<Record<string, string>>({});
-  const [pendingAnswer, setPendingAnswer] = useState<"yes" | "no" | null>(null);
+  const [photoStage, setPhotoStage] = useState(false);
+  const [taskPhotoUrls, setTaskPhotoUrls] = useState<Record<string, string[]>>({});
   const [pendingFailureTask, setPendingFailureTask] = useState<CleaningTask | null>(null);
   const [failureReason, setFailureReason] = useState("");
-  const [failedTaskReasons, setFailedTaskReasons] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState("");
+  const [photoError, setPhotoError] = useState("");
   const [cameraTaskId, setCameraTaskId] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState("");
   const [isCameraStarting, setIsCameraStarting] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
   const currentTask = area.tasks[stepIndex];
-  const finishedChecklist = stepIndex >= area.tasks.length;
-  const hasFailures = failedTasks.length > 0;
-  const currentPhotoUrl = currentTask ? taskPhotoUrls[currentTask.id] : null;
-  const attachedPhotoUrls = Object.values(taskPhotoUrls);
+  const finishedQuestions = stepIndex >= area.tasks.length;
+  const doneTasks = area.tasks.filter((task) => answers[task.id] === "yes");
+  const failedTasks = area.tasks.filter((task) => answers[task.id] === "no");
+  const attachedPhotoUrls = Object.values(taskPhotoUrls).flat();
 
   const stopCamera = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -38,9 +42,7 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
   };
 
   useEffect(() => {
-    if (!cameraTaskId) {
-      return undefined;
-    }
+    if (!cameraTaskId) return undefined;
 
     let active = true;
     const startCamera = async () => {
@@ -73,9 +75,7 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
       } catch {
         setCameraError(t("errors.cameraPermission"));
       } finally {
-        if (active) {
-          setIsCameraStarting(false);
-        }
+        if (active) setIsCameraStarting(false);
       }
     };
 
@@ -92,39 +92,24 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
     window.setTimeout(() => setFeedback(""), 1200);
   };
 
-  const createBaseRecord = (): Omit<CleaningRecord, "status"> => ({
-    id: crypto.randomUUID(),
-    employeeId: employee.id,
-    areaId: area.id,
-    comment: comment.trim() || null,
-    photoUrl: attachedPhotoUrls[0] ?? null,
-    photoUrls: attachedPhotoUrls,
-    createdAt: new Date().toISOString(),
-  });
-
-  const advanceWithAnswer = (answer: "yes" | "no", options?: { withoutPhoto?: boolean }) => {
-    if (options?.withoutPhoto) {
-      showFeedback(t("feedback.stepSavedWithoutPhoto"));
-    }
+  const answerTask = (answer: Answer) => {
+    if (!currentTask) return;
 
     if (answer === "no") {
       setPendingFailureTask(currentTask);
       setFailureReason("");
-      setPendingAnswer(null);
       return;
     }
 
+    setAnswers((value) => ({ ...value, [currentTask.id]: answer }));
     setStepIndex((value) => value + 1);
-    setPendingAnswer(null);
   };
 
   const saveFailureReason = () => {
-    if (!pendingFailureTask) {
-      return;
-    }
+    if (!pendingFailureTask) return;
 
-    setFailedTasks((value) => [...value, pendingFailureTask]);
-    setFailedTaskReasons((value) => ({
+    setAnswers((value) => ({ ...value, [pendingFailureTask.id]: "no" }));
+    setFailureReasons((value) => ({
       ...value,
       [pendingFailureTask.id]: failureReason.trim() || t("common.noValue"),
     }));
@@ -133,46 +118,8 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
     setStepIndex((value) => value + 1);
   };
 
-  const answerTask = (answer: "yes" | "no") => {
-    if (currentTask.frequency === "daily" && !currentPhotoUrl) {
-      setPendingAnswer(answer);
-      return;
-    }
-
-    advanceWithAnswer(answer);
-  };
-
-  const saveIncomplete = () => {
-    const translatedFailures = failedTasks.map((task) => translateTask(task, language));
-
-    onSave({
-      ...createBaseRecord(),
-      status: "incomplete",
-      failedTaskId: failedTasks[0]?.id ?? null,
-      failedTaskLabel: translatedFailures[0] ?? null,
-      failedTaskIds: failedTasks.map((task) => task.id),
-      failedTaskLabels: translatedFailures,
-      failedTaskReasons: failedTasks.map((task, index) => ({
-        taskId: task.id,
-        label: task.question,
-        reason: failedTaskReasons[task.id] || t("common.noValue"),
-      })),
-    });
-  };
-
-  const saveCompleted = () => {
-    onSave({
-      ...createBaseRecord(),
-      status: "completed",
-      failedTaskId: null,
-      failedTaskLabel: null,
-      failedTaskIds: [],
-      failedTaskLabels: [],
-      failedTaskReasons: [],
-    });
-  };
-
   const openCamera = (taskId: string) => {
+    if ((taskPhotoUrls[taskId]?.length ?? 0) >= 3) return;
     setCameraTaskId(taskId);
   };
 
@@ -183,83 +130,177 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
   };
 
   const capturePhoto = () => {
-    if (!cameraTaskId || !videoRef.current) {
-      return;
-    }
+    if (!cameraTaskId || !videoRef.current) return;
 
     const video = videoRef.current;
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
+    const sourceWidth = video.videoWidth || 1280;
+    const sourceHeight = video.videoHeight || 720;
+    const ratio = Math.min(1, 900 / Math.max(sourceWidth, sourceHeight));
+    canvas.width = Math.round(sourceWidth * ratio);
+    canvas.height = Math.round(sourceHeight * ratio);
     const context = canvas.getContext("2d");
-    if (!context) {
-      return;
-    }
+    if (!context) return;
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     setTaskPhotoUrls((value) => ({
       ...value,
-      [cameraTaskId]: canvas.toDataURL("image/jpeg", 0.88),
+      [cameraTaskId]: [...(value[cameraTaskId] ?? []), canvas.toDataURL("image/jpeg", 0.72)].slice(0, 3),
     }));
-    setPendingAnswer(null);
+    setPhotoError("");
     closeCamera();
     showFeedback(t("feedback.photoTaken"));
   };
 
-  const removePhoto = (taskId: string) => {
-    setTaskPhotoUrls(({ [taskId]: _removed, ...rest }) => rest);
+  const removePhoto = (taskId: string, photoIndex: number) => {
+    setTaskPhotoUrls((value) => ({
+      ...value,
+      [taskId]: (value[taskId] ?? []).filter((_, index) => index !== photoIndex),
+    }));
   };
 
-  const cancelFailureReason = () => {
-    setPendingFailureTask(null);
-    setFailureReason("");
+  const missingRequiredPhotos = () => doneTasks.filter((task) => (taskPhotoUrls[task.id]?.length ?? 0) < 1);
+
+  const createRecord = () => {
+    const failedTaskLabels = failedTasks.map((task) => translateTask(task, language));
+
+    return {
+      id: crypto.randomUUID(),
+      employeeId: employee.id,
+      areaId: area.id,
+      sectorId: area.id,
+      recordType: "daily" as const,
+      status: failedTasks.length ? "incomplete" as const : "completed" as const,
+      failedTaskId: failedTasks[0]?.id ?? null,
+      failedTaskLabel: failedTaskLabels[0] ?? null,
+      failedTaskIds: failedTasks.map((task) => task.id),
+      failedTaskLabels,
+      failedTaskReasons: failedTasks.map((task) => ({
+        taskId: task.id,
+        label: task.question,
+        reason: failureReasons[task.id] || t("common.noValue"),
+      })),
+      taskResults: area.tasks.map((task) => ({
+        taskId: task.id,
+        label: task.question,
+        status: answers[task.id] === "yes" ? "done" as const : "not_done" as const,
+        reason: answers[task.id] === "no" ? failureReasons[task.id] || t("common.noValue") : null,
+        photoUrls: taskPhotoUrls[task.id] ?? [],
+      })),
+      comment: comment.trim() || null,
+      photoUrl: attachedPhotoUrls[0] ?? null,
+      photoUrls: attachedPhotoUrls,
+      createdAt: new Date().toISOString(),
+    } satisfies CleaningRecord;
   };
 
-  if (finishedChecklist && hasFailures) {
+  const finishRecord = () => {
+    const missing = missingRequiredPhotos();
+    if (missing.length) {
+      setPhotoError(t("wizard.photoRequirement"));
+      return;
+    }
+
+    onSave(createRecord());
+  };
+
+  if (finishedQuestions && !photoStage) {
     return (
       <section className="wizard-panel">
-        <div className="status-badge danger">
-          <X size={16} />
-          {t("wizard.failedTitle")}
+        <div className={failedTasks.length ? "status-badge danger" : "status-badge success"}>
+          {failedTasks.length ? <X size={16} /> : <Check size={16} />}
+          {failedTasks.length ? t("wizard.failedTitle") : t("states.completed")}
         </div>
-        <h2>{t("wizard.reviewIncompleteTitle")}</h2>
+        <h2>{failedTasks.length ? t("wizard.reviewIncompleteTitle") : t("wizard.completedReviewTitle")}</h2>
         <p className="muted">{t("wizard.failedHelp")}</p>
-        <ul className="failed-task-list">
-          {failedTasks.map((task) => (
-            <li key={task.id}>
-              <strong>{translateTask(task, language)}</strong>
-              <span>{failedTaskReasons[task.id] || t("common.noValue")}</span>
-            </li>
-          ))}
-        </ul>
+        {failedTasks.length ? (
+          <ul className="failed-task-list">
+            {failedTasks.map((task) => (
+              <li key={task.id}>
+                <strong>{translateTask(task, language)}</strong>
+                <span>{failureReasons[task.id] || t("common.noValue")}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <label className="field">
-          <span>{t("fields.comment")}</span>
+          <span>{failedTasks.length ? t("fields.comment") : t("fields.message")}</span>
           <textarea value={comment} onChange={(event) => setComment(event.target.value)} rows={4} />
         </label>
-        <button className="primary-action danger-action" type="button" onClick={saveIncomplete}>
-          <X size={18} />
-          {t("actions.saveIncomplete")}
-        </button>
+        {doneTasks.length ? (
+          <button className="primary-action" type="button" onClick={() => setPhotoStage(true)}>
+            <Camera size={18} />
+            {t("actions.continueToPhotos")}
+          </button>
+        ) : (
+          <button className="primary-action danger-action" type="button" onClick={finishRecord}>
+            <X size={18} />
+            {t("actions.saveIncomplete")}
+          </button>
+        )}
       </section>
     );
   }
 
-  if (finishedChecklist) {
+  if (photoStage) {
     return (
       <section className="wizard-panel">
         <div className="status-badge success">
-          <Check size={16} />
-          {t("states.completed")}
+          <Camera size={16} />
+          {t("wizard.doneTasks")}: {doneTasks.length}
         </div>
-        <h2>{t("wizard.completedReviewTitle")}</h2>
-        <label className="field">
-          <span>{t("fields.message")}</span>
-          <textarea value={comment} onChange={(event) => setComment(event.target.value)} rows={4} />
-        </label>
-        <button className="primary-action" type="button" onClick={saveCompleted}>
-          <Check size={18} />
-          {t("actions.saveCompleted")}
+        <h2>{t("wizard.photoStageTitle")}</h2>
+        <p className="muted">{t("wizard.photoStageHelp")}</p>
+        {photoError ? <p className="error-text">{photoError}</p> : null}
+        <div className="photo-checklist">
+          {doneTasks.map((task) => {
+            const photos = taskPhotoUrls[task.id] ?? [];
+
+            return (
+              <article className="photo-task-card" key={task.id}>
+                <div>
+                  <strong>{translateTask(task, language)}</strong>
+                  <span>{photos.length}/3 {t("records.photo")}</span>
+                </div>
+                {photos.length ? (
+                  <div className="photo-thumb-grid">
+                    {photos.map((photoUrl, index) => (
+                      <div className="photo-thumb" key={`${task.id}-${index}`}>
+                        <img src={photoUrl} alt={`${t("records.photo")} ${index + 1}`} />
+                        <button type="button" onClick={() => removePhoto(task.id, index)} aria-label={t("actions.removePhoto")}>
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                <button className="secondary-action" type="button" onClick={() => openCamera(task.id)} disabled={photos.length >= 3}>
+                  <Camera size={18} />
+                  {t("actions.addPhoto")}
+                </button>
+              </article>
+            );
+          })}
+        </div>
+        <button className={failedTasks.length ? "primary-action danger-action" : "primary-action"} type="button" onClick={finishRecord}>
+          {failedTasks.length ? <X size={18} /> : <Check size={18} />}
+          {failedTasks.length ? t("actions.saveIncomplete") : t("actions.saveCompleted")}
         </button>
+        {cameraTaskId ? (
+          <CameraModal
+            cameraError={cameraError}
+            isCameraStarting={isCameraStarting}
+            videoRef={videoRef}
+            onCancel={closeCamera}
+            onCapture={capturePhoto}
+          />
+        ) : null}
+        {feedback ? (
+          <div className="wizard-feedback" role="status" aria-live="polite">
+            <Check size={18} />
+            {feedback}
+          </div>
+        ) : null}
       </section>
     );
   }
@@ -275,33 +316,8 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
       <div className="progress-track">
         <div className="progress-fill" style={{ width: `${((stepIndex + 1) / area.tasks.length) * 100}%` }} />
       </div>
-      <p className="task-frequency">{t(`frequency.${currentTask.frequency}`)}</p>
+      <p className="task-frequency">{t("frequency.daily")}</p>
       <h2>{translateTask(currentTask, language)}</h2>
-      {currentTask.frequency === "daily" ? (
-        <>
-          {currentPhotoUrl ? (
-            <div className="photo-loaded-card">
-              <img src={currentPhotoUrl} alt={t("fields.photo")} />
-              <div>
-                <span>{t("feedback.photoTaken")}</span>
-                <button className="text-file-action" type="button" onClick={() => openCamera(currentTask.id)}>
-                  <Camera size={17} />
-                  {t("actions.changePhoto")}
-                </button>
-              </div>
-              <button className="icon-action danger-icon" type="button" onClick={() => removePhoto(currentTask.id)} aria-label={t("actions.removePhoto")}>
-                <Trash2 size={18} />
-              </button>
-            </div>
-          ) : (
-            <button className="file-drop compact-drop camera-trigger" type="button" onClick={() => openCamera(currentTask.id)}>
-              <Camera size={24} />
-              <span>{t("wizard.stepPhotoHelp")}</span>
-              <strong>{t("actions.takePhoto")}</strong>
-            </button>
-          )}
-        </>
-      ) : null}
       <div className="answer-grid">
         <button className="yes-button" type="button" onClick={() => answerTask("yes")}>
           <Check size={22} />
@@ -312,21 +328,6 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
           {t("actions.no")}
         </button>
       </div>
-      {pendingAnswer ? (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="confirm-no-photo-title">
-          <div className="confirm-no-photo">
-            <h3 id="confirm-no-photo-title">{t("wizard.confirmNoPhoto")}</h3>
-            <div className="confirm-actions">
-              <button className="secondary-action" type="button" onClick={() => currentTask && openCamera(currentTask.id)}>
-                {t("actions.takePhoto")}
-              </button>
-              <button className="primary-action" type="button" onClick={() => advanceWithAnswer(pendingAnswer, { withoutPhoto: true })}>
-                {t("actions.continueWithoutPhoto")}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
       {pendingFailureTask ? (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="failure-reason-title">
           <div className="confirm-no-photo">
@@ -342,7 +343,7 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
               />
             </label>
             <div className="confirm-actions">
-              <button className="secondary-action" type="button" onClick={cancelFailureReason}>
+              <button className="secondary-action" type="button" onClick={() => setPendingFailureTask(null)}>
                 {t("actions.back")}
               </button>
               <button className="primary-action" type="button" onClick={saveFailureReason}>
@@ -353,36 +354,43 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
           </div>
         </div>
       ) : null}
-      {cameraTaskId ? (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="camera-title">
-          <div className="camera-modal">
-            <div>
-              <h3 id="camera-title">{t("wizard.cameraTitle")}</h3>
-              <p className="muted">{t("wizard.cameraHelp")}</p>
-            </div>
-            <div className="camera-preview">
-              {cameraError ? <p className="error-text">{cameraError}</p> : null}
-              {!cameraError ? <video ref={videoRef} playsInline muted /> : null}
-              {isCameraStarting ? <span>{t("wizard.cameraStarting")}</span> : null}
-            </div>
-            <div className="confirm-actions">
-              <button className="secondary-action" type="button" onClick={closeCamera}>
-                {t("actions.cancel")}
-              </button>
-              <button className="primary-action" type="button" onClick={capturePhoto} disabled={Boolean(cameraError) || isCameraStarting}>
-                <Camera size={18} />
-                {t("actions.capturePhoto")}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      {feedback ? (
-        <div className="wizard-feedback" role="status" aria-live="polite">
-          <Check size={18} />
-          {feedback}
-        </div>
-      ) : null}
     </section>
+  );
+}
+
+type CameraModalProps = {
+  cameraError: string;
+  isCameraStarting: boolean;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  onCancel: () => void;
+  onCapture: () => void;
+};
+
+function CameraModal({ cameraError, isCameraStarting, videoRef, onCancel, onCapture }: CameraModalProps) {
+  const { t } = useI18n();
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="camera-title">
+      <div className="camera-modal">
+        <div>
+          <h3 id="camera-title">{t("wizard.cameraTitle")}</h3>
+          <p className="muted">{t("wizard.cameraHelp")}</p>
+        </div>
+        <div className="camera-preview">
+          {cameraError ? <p className="error-text">{cameraError}</p> : null}
+          {!cameraError ? <video ref={videoRef} playsInline muted /> : null}
+          {isCameraStarting ? <span>{t("wizard.cameraStarting")}</span> : null}
+        </div>
+        <div className="confirm-actions">
+          <button className="secondary-action" type="button" onClick={onCancel}>
+            {t("actions.cancel")}
+          </button>
+          <button className="primary-action" type="button" onClick={onCapture} disabled={Boolean(cameraError) || isCameraStarting}>
+            <Camera size={18} />
+            {t("actions.capturePhoto")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

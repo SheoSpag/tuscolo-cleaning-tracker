@@ -56,17 +56,21 @@ export function Home({
           </label>
         )}
 
-        <label className="field">
-          <span>{t("home.selectArea")}</span>
-          <select value={selectedAreaId} onChange={(event) => onAreaChange(event.target.value)}>
-            <option value="">{t("common.select")}</option>
-            {areas.map((area) => (
-              <option key={area.id} value={area.id}>
-                {t(area.nameKey)}
-              </option>
-            ))}
-          </select>
-        </label>
+        {areas.length ? (
+          <label className="field">
+            <span>{t("home.selectSector")}</span>
+            <select value={selectedAreaId} onChange={(event) => onAreaChange(event.target.value)}>
+              <option value="">{t("common.select")}</option>
+              {areas.map((area) => (
+                <option key={area.id} value={area.id}>
+                  {t(area.nameKey)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <p className="empty-state">{t("home.noSectors")}</p>
+        )}
 
         {error ? <p className="error-text">{error}</p> : null}
 

@@ -2,7 +2,15 @@ import type { AppUser, Area } from "../types";
 import { haccpTasks } from "./haccpTasks";
 
 export const defaultUsers: AppUser[] = [
-  { id: "admin-1", name: "Tuscolo Admin", email: "admin@tuscolo.de", password: "admin123", language: "es", role: "admin" },
+  {
+    id: "admin-1",
+    name: "Tuscolo Admin",
+    email: "admin@tuscolo.de",
+    password: "admin123",
+    language: "es",
+    role: "admin",
+    assignedSectorIds: ["bar", "kitchen", "service", "spule", "management"],
+  },
 ];
 
 export const employees = defaultUsers;
