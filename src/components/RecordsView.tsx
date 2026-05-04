@@ -53,7 +53,11 @@ export function RecordsView({ records, areas, employees }: RecordsViewProps) {
   const title = period === "month" ? formatter.format(now) : `${formatter.format(startOfWeek(now))} - ${formatter.format(new Date(startOfWeek(now).getTime() + 6 * 24 * 60 * 60 * 1000))}`;
   const findArea = (areaId: string) => areas.find((area) => area.id === areaId);
   const findEmployee = (employeeId: string) => employees.find((employee) => employee.id === employeeId);
-  const photoCount = (record: CleaningRecord) => record.taskResults?.reduce((sum, result) => sum + (result.photoUrls?.length ?? 0), 0) ?? record.photoUrls?.length ?? (record.photoUrl ? 1 : 0);
+  const photoCount = (record: CleaningRecord) => {
+    const taskPhotoCount = record.taskResults?.reduce((sum, result) => sum + (result.photoUrls?.length ?? 0), 0) ?? 0;
+    const recordPhotoCount = record.photoUrls?.length ?? (record.photoUrl ? 1 : 0);
+    return taskPhotoCount || recordPhotoCount;
+  };
   const findTaskQuestion = (record: CleaningRecord) => {
     if (record.failedTaskReasons?.length) {
       return record.failedTaskReasons
@@ -157,11 +161,10 @@ type RecordDetailModalProps = {
 
 function RecordDetailModal({ record, area, employee, onClose }: RecordDetailModalProps) {
   const { language, t } = useI18n();
-  const taskResults: NonNullable<CleaningRecord["taskResults"]> = record.taskResults?.length
-    ? record.taskResults
-    : (record.photoUrls ?? []).length
-      ? [{ taskId: "photos", label: t("records.photo"), status: "done", reason: null, photoUrls: record.photoUrls ?? [] }]
-      : [];
+  const taskResults: NonNullable<CleaningRecord["taskResults"]> = record.taskResults ?? [];
+  const taskPhotoCount = taskResults.reduce((sum, result) => sum + (result.photoUrls?.length ?? 0), 0);
+  const recordPhotoUrls = record.photoUrls?.length ? record.photoUrls : record.photoUrl ? [record.photoUrl] : [];
+  const summaryPhotoUrls = record.recordType === "daily" || !taskPhotoCount ? recordPhotoUrls : [];
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="record-detail-title">
@@ -178,6 +181,22 @@ function RecordDetailModal({ record, area, employee, onClose }: RecordDetailModa
         </div>
 
         <div className="record-detail-list">
+          {summaryPhotoUrls.length ? (
+            <article className="record-task-detail">
+              <div>
+                <strong>{t("records.summaryPhotos")}</strong>
+                <span>{summaryPhotoUrls.length} {t("records.photo")}</span>
+              </div>
+              <div className="record-photo-grid">
+                {summaryPhotoUrls.map((photoUrl, index) => (
+                  <a href={photoUrl} target="_blank" rel="noreferrer" key={`summary-${index}`}>
+                    <img src={photoUrl} alt={`${t("records.photo")} ${index + 1}`} />
+                  </a>
+                ))}
+              </div>
+            </article>
+          ) : null}
+
           {taskResults.length ? (
             taskResults.map((result) => (
               <article className="record-task-detail" key={result.taskId}>
@@ -194,14 +213,12 @@ function RecordDetailModal({ record, area, employee, onClose }: RecordDetailModa
                       </a>
                     ))}
                   </div>
-                ) : (
-                  <p className="muted">{t("records.noPhoto")}</p>
-                )}
+                ) : null}
               </article>
             ))
-          ) : (
+          ) : !summaryPhotoUrls.length ? (
             <p className="empty-state">{t("records.noPhoto")}</p>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

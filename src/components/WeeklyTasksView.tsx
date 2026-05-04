@@ -142,7 +142,7 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
   const submitWeeklyTask = () => {
     if (!activeTask) return;
     if (photoUrls.length < 1) {
-      setPhotoError(t("wizard.photoRequirement"));
+      setPhotoError(t("weekly.photoRequirement"));
       return;
     }
 
@@ -307,6 +307,7 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
           <div className="confirm-no-photo">
             <h3 id="weekly-submit-title">{translateTask(activeTask.task, language)}</h3>
             <p className="muted">{t(activeTask.area.nameKey)}</p>
+            <p className="muted">{t("weekly.photoHelp")}</p>
             {photoError ? <p className="error-text">{photoError}</p> : null}
             {photoUrls.length ? (
               <div className="photo-thumb-grid">

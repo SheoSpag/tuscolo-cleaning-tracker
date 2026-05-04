@@ -19,12 +19,11 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
   const [failureReasons, setFailureReasons] = useState<Record<string, string>>({});
   const [comment, setComment] = useState("");
   const [photoStage, setPhotoStage] = useState(false);
-  const [taskPhotoUrls, setTaskPhotoUrls] = useState<Record<string, string[]>>({});
+  const [summaryPhotoUrls, setSummaryPhotoUrls] = useState<string[]>([]);
   const [pendingFailureTask, setPendingFailureTask] = useState<CleaningTask | null>(null);
   const [failureReason, setFailureReason] = useState("");
   const [feedback, setFeedback] = useState("");
   const [photoError, setPhotoError] = useState("");
-  const [cameraTaskId, setCameraTaskId] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [isCameraStarting, setIsCameraStarting] = useState(false);
@@ -35,8 +34,9 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
   const finishedQuestions = stepIndex >= area.tasks.length;
   const doneTasks = area.tasks.filter((task) => answers[task.id] === "yes");
   const failedTasks = area.tasks.filter((task) => answers[task.id] === "no");
-  const attachedPhotoUrls = Object.values(taskPhotoUrls).flat();
-  const maxDailyPhotos = doneTasks.length * 3;
+  const attachedPhotoUrls = summaryPhotoUrls;
+  const minDailyPhotos = 6;
+  const maxDailyPhotos = 8;
 
   const stopCamera = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -120,9 +120,8 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
     setStepIndex((value) => value + 1);
   };
 
-  const openCamera = (taskId: string) => {
-    if ((taskPhotoUrls[taskId]?.length ?? 0) >= 3) return;
-    setCameraTaskId(taskId);
+  const openCamera = () => {
+    if (summaryPhotoUrls.length >= maxDailyPhotos) return;
     setCameraOpen(true);
   };
 
@@ -132,32 +131,9 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
     stopCamera();
   };
 
-  const nextCameraTaskId = (currentTaskId: string, nextPhotoUrls: Record<string, string[]>) => {
-    const currentIndex = doneTasks.findIndex((task) => task.id === currentTaskId);
-    const orderedTasks = [...doneTasks.slice(currentIndex + 1), ...doneTasks.slice(0, currentIndex + 1)];
-    const taskMissingRequiredPhoto = orderedTasks.find((task) => (nextPhotoUrls[task.id]?.length ?? 0) < 1);
-    if (taskMissingRequiredPhoto) return taskMissingRequiredPhoto.id;
-
-    const currentPhotos = nextPhotoUrls[currentTaskId]?.length ?? 0;
-    if (currentPhotos < 3) return currentTaskId;
-
-    return doneTasks.find((task) => (nextPhotoUrls[task.id]?.length ?? 0) < 3)?.id ?? currentTaskId;
-  };
-
-  const nextAvailableCameraTaskId = (currentTaskId: string, nextPhotoUrls: Record<string, string[]>) => {
-    const currentIndex = doneTasks.findIndex((task) => task.id === currentTaskId);
-    const orderedTasks = [...doneTasks.slice(currentIndex + 1), ...doneTasks.slice(0, currentIndex)];
-    return orderedTasks.find((task) => (nextPhotoUrls[task.id]?.length ?? 0) < 3)?.id ?? currentTaskId;
-  };
-
-  const moveToNextCameraTask = () => {
-    if (!cameraTaskId) return;
-    setCameraTaskId(nextAvailableCameraTaskId(cameraTaskId, taskPhotoUrls));
-  };
-
   const capturePhoto = () => {
-    if (!cameraTaskId || !videoRef.current) return;
-    if (attachedPhotoUrls.length >= maxDailyPhotos || (taskPhotoUrls[cameraTaskId]?.length ?? 0) >= 3) return;
+    if (!videoRef.current) return;
+    if (summaryPhotoUrls.length >= maxDailyPhotos) return;
 
     const video = videoRef.current;
     const canvas = document.createElement("canvas");
@@ -171,29 +147,14 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const photoUrl = canvas.toDataURL("image/jpeg", 0.72);
-    setTaskPhotoUrls((value) => {
-      const nextValue = {
-        ...value,
-        [cameraTaskId]: [...(value[cameraTaskId] ?? []), photoUrl].slice(0, 3),
-      };
-      const nextTaskPhotoCount = nextValue[cameraTaskId]?.length ?? 0;
-      if (nextTaskPhotoCount >= 3) {
-        setCameraTaskId(nextCameraTaskId(cameraTaskId, nextValue));
-      }
-      return nextValue;
-    });
+    setSummaryPhotoUrls((value) => [...value, photoUrl].slice(0, maxDailyPhotos));
     setPhotoError("");
     showFeedback(t("feedback.photoTaken"));
   };
 
-  const removePhoto = (taskId: string, photoIndex: number) => {
-    setTaskPhotoUrls((value) => ({
-      ...value,
-      [taskId]: (value[taskId] ?? []).filter((_, index) => index !== photoIndex),
-    }));
+  const removePhoto = (photoIndex: number) => {
+    setSummaryPhotoUrls((value) => value.filter((_, index) => index !== photoIndex));
   };
-
-  const missingRequiredPhotos = () => doneTasks.filter((task) => (taskPhotoUrls[task.id]?.length ?? 0) < 1);
 
   const createRecord = () => {
     const failedTaskLabels = failedTasks.map((task) => translateTask(task, language));
@@ -219,7 +180,7 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
         label: task.question,
         status: answers[task.id] === "yes" ? "done" as const : "not_done" as const,
         reason: answers[task.id] === "no" ? failureReasons[task.id] || t("common.noValue") : null,
-        photoUrls: taskPhotoUrls[task.id] ?? [],
+        photoUrls: [],
       })),
       comment: comment.trim() || null,
       photoUrl: attachedPhotoUrls[0] ?? null,
@@ -229,8 +190,7 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
   };
 
   const finishRecord = () => {
-    const missing = missingRequiredPhotos();
-    if (missing.length) {
+    if (doneTasks.length && (attachedPhotoUrls.length < minDailyPhotos || attachedPhotoUrls.length > maxDailyPhotos)) {
       setPhotoError(t("wizard.photoRequirement"));
       return;
     }
@@ -287,53 +247,42 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
         <p className="muted">{t("wizard.photoStageHelp")}</p>
         {photoError ? <p className="error-text">{photoError}</p> : null}
         <div className="photo-checklist">
-          {doneTasks.map((task) => {
-            const photos = taskPhotoUrls[task.id] ?? [];
-
-            return (
-              <article className="photo-task-card" key={task.id}>
-                <div>
-                  <strong>{translateTask(task, language)}</strong>
-                  <span>{photos.length}/3 {t("records.photo")}</span>
-                </div>
-                {photos.length ? (
-                  <div className="photo-thumb-grid">
-                    {photos.map((photoUrl, index) => (
-                      <div className="photo-thumb" key={`${task.id}-${index}`}>
-                        <img src={photoUrl} alt={`${t("records.photo")} ${index + 1}`} />
-                        <button type="button" onClick={() => removePhoto(task.id, index)} aria-label={t("actions.removePhoto")}>
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    ))}
+          <article className="photo-task-card">
+            <div>
+              <strong>{t("wizard.photoStageTitle")}</strong>
+              <span>{attachedPhotoUrls.length}/{maxDailyPhotos} {t("records.photo")}</span>
+            </div>
+            {summaryPhotoUrls.length ? (
+              <div className="photo-thumb-grid">
+                {summaryPhotoUrls.map((photoUrl, index) => (
+                  <div className="photo-thumb" key={index}>
+                    <img src={photoUrl} alt={`${t("records.photo")} ${index + 1}`} />
+                    <button type="button" onClick={() => removePhoto(index)} aria-label={t("actions.removePhoto")}>
+                      <Trash2 size={15} />
+                    </button>
                   </div>
-                ) : null}
-                <button className="secondary-action" type="button" onClick={() => openCamera(task.id)} disabled={photos.length >= 3 || attachedPhotoUrls.length >= maxDailyPhotos}>
-                  <Camera size={18} />
-                  {t("actions.addPhoto")}
-                </button>
-              </article>
-            );
-          })}
+                ))}
+              </div>
+            ) : null}
+            <button className="secondary-action" type="button" onClick={openCamera} disabled={attachedPhotoUrls.length >= maxDailyPhotos}>
+              <Camera size={18} />
+              {t("actions.addPhoto")}
+            </button>
+          </article>
         </div>
         <button className={failedTasks.length ? "primary-action danger-action" : "primary-action"} type="button" onClick={finishRecord}>
           {failedTasks.length ? <X size={18} /> : <Check size={18} />}
           {failedTasks.length ? t("actions.saveIncomplete") : t("actions.saveCompleted")}
         </button>
-        {cameraOpen && cameraTaskId ? (
+        {cameraOpen ? (
           <CameraModal
-            doneTasks={doneTasks}
-            taskPhotoUrls={taskPhotoUrls}
-            selectedTaskId={cameraTaskId}
             totalPhotos={attachedPhotoUrls.length}
             maxPhotos={maxDailyPhotos}
             cameraError={cameraError}
             isCameraStarting={isCameraStarting}
             videoRef={videoRef}
-            onSelectTask={setCameraTaskId}
             onCancel={closeCamera}
             onCapture={capturePhoto}
-            onNextTask={moveToNextCameraTask}
           />
         ) : null}
         {feedback ? (
@@ -400,46 +349,26 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
 }
 
 type CameraModalProps = {
-  doneTasks: CleaningTask[];
-  taskPhotoUrls: Record<string, string[]>;
-  selectedTaskId: string;
   totalPhotos: number;
   maxPhotos: number;
   cameraError: string;
   isCameraStarting: boolean;
   videoRef: React.RefObject<HTMLVideoElement | null>;
-  onSelectTask: (taskId: string) => void;
   onCancel: () => void;
   onCapture: () => void;
-  onNextTask: () => void;
 };
 
 function CameraModal({
-  doneTasks,
-  taskPhotoUrls,
-  selectedTaskId,
   totalPhotos,
   maxPhotos,
   cameraError,
   isCameraStarting,
   videoRef,
-  onSelectTask,
   onCancel,
   onCapture,
-  onNextTask,
 }: CameraModalProps) {
-  const { language, t } = useI18n();
-  const taskStripRef = useRef<HTMLDivElement>(null);
-  const selectedTask = doneTasks.find((task) => task.id === selectedTaskId);
-  const selectedTaskPhotos = taskPhotoUrls[selectedTaskId]?.length ?? 0;
-  const reachedSelectedTaskLimit = selectedTaskPhotos >= 3;
+  const { t } = useI18n();
   const reachedTotalLimit = totalPhotos >= maxPhotos;
-  const hasNextAvailableTask = doneTasks.some((task) => task.id !== selectedTaskId && (taskPhotoUrls[task.id]?.length ?? 0) < 3);
-
-  useEffect(() => {
-    const activeButton = taskStripRef.current?.querySelector<HTMLButtonElement>("button.active");
-    activeButton?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-  }, [selectedTaskId]);
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="camera-title">
@@ -452,18 +381,6 @@ function CameraModal({
           <strong>{totalPhotos}/{maxPhotos}</strong>
           <span>{t("wizard.photoTotal")}</span>
         </div>
-        <div className="camera-task-strip" aria-label={t("wizard.cameraCurrentTask")} ref={taskStripRef}>
-          {doneTasks.map((task, index) => {
-            const count = taskPhotoUrls[task.id]?.length ?? 0;
-            return (
-              <button className={task.id === selectedTaskId ? "active" : ""} type="button" onClick={() => onSelectTask(task.id)} key={task.id} disabled={count >= 3}>
-                <span>{index + 1}</span>
-                <strong>{count}/3</strong>
-              </button>
-            );
-          })}
-        </div>
-        {selectedTask ? <p className="camera-current-task">{translateTask(selectedTask, language)}</p> : null}
         <div className="camera-preview">
           {cameraError ? <p className="error-text">{cameraError}</p> : null}
           {!cameraError ? <video ref={videoRef} playsInline muted /> : null}
@@ -473,10 +390,7 @@ function CameraModal({
           <button className="secondary-action" type="button" onClick={onCancel}>
             {t("actions.done")}
           </button>
-          <button className="secondary-action" type="button" onClick={onNextTask} disabled={!hasNextAvailableTask}>
-            {t("actions.nextTask")}
-          </button>
-          <button className="primary-action" type="button" onClick={onCapture} disabled={Boolean(cameraError) || isCameraStarting || reachedSelectedTaskLimit || reachedTotalLimit}>
+          <button className="primary-action" type="button" onClick={onCapture} disabled={Boolean(cameraError) || isCameraStarting || reachedTotalLimit}>
             <Camera size={18} />
             {t("actions.capturePhoto")}
           </button>
