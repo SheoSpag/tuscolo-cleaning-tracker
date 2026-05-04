@@ -27,19 +27,29 @@ const rateLimits = new Map();
 
 const defaultBranches = [
   {
-    id: "branch-centro",
-    name: "Tuscolo Centro",
+    id: "branch-frankenbad",
+    name: "Frankenbad",
     areaIds: [...supportedOperationalAreaIds],
   },
   {
-    id: "branch-norte",
-    name: "Tuscolo Norte",
+    id: "branch-muensterblick",
+    name: "Münsterblick",
     areaIds: ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule"],
   },
   {
-    id: "branch-sur",
-    name: "Tuscolo Sur",
+    id: "branch-siegburg",
+    name: "Siegburg",
     areaIds: ["bar", "kitchen-pizza", "service", "spule"],
+  },
+  {
+    id: "branch-colonia",
+    name: "Colonia Tuscolo",
+    areaIds: ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule"],
+  },
+  {
+    id: "branch-rheinbach",
+    name: "Rheinbach",
+    areaIds: ["bar", "kitchen-pasta", "service", "spule"],
   },
 ];
 
@@ -61,7 +71,7 @@ const defaultUsers = [
     password: "prueba123",
     language: "es",
     role: "employee",
-    assignedBranchIds: ["branch-centro"],
+    assignedBranchIds: ["branch-frankenbad"],
     assignedSectorIds: ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule"],
   },
 ];

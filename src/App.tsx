@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, ClipboardList, HomeIcon, ListChecks, LogOut } from "lucide-react";
+import { HomeIcon, LogOut } from "lucide-react";
 import { areas as baseAreas, defaultBranches, defaultTasks, defaultUsers } from "./data/mockData";
 import { I18nContext } from "./i18n/I18nContext";
 import { translate } from "./i18n/translations";
@@ -8,8 +8,6 @@ import { Header } from "./components/Header";
 import { Home } from "./components/Home";
 import { CleaningWizard } from "./components/CleaningWizard";
 import { FinalScreen } from "./components/FinalScreen";
-import { RecordsView } from "./components/RecordsView";
-import { TaskManager } from "./components/TaskManager";
 import { AuthView } from "./components/AuthView";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { WeeklyTasksView } from "./components/WeeklyTasksView";
@@ -324,56 +322,44 @@ function App() {
     setError("");
     setScreen(nextScreen);
   };
+  const isAdmin = currentUser?.role === "admin";
 
   return (
     <I18nContext.Provider value={i18nValue}>
-      <main className={currentUser ? "app-shell" : "app-shell auth-shell"}>
-        <Header compact={!currentUser} />
+      <main className={isAdmin ? "admin-root" : currentUser ? "app-shell" : "app-shell auth-shell"}>
+        {!isAdmin ? <Header compact={!currentUser} /> : null}
         {!currentUser ? <AuthView users={users} onLogin={login} onStartRegister={startRegister} onVerifyRegister={verifyRegister} error={error} /> : null}
-        {currentUser ? (
+        {currentUser && !isAdmin ? (
           <nav className="app-nav" aria-label={translate(language, "nav.aria")}>
-            {currentUser.role === "admin" ? (
-              <button className={screen === "dashboard" ? "active" : ""} type="button" onClick={() => goToScreen("dashboard")}>
-                <BarChart3 size={18} />
-                {translate(language, "nav.dashboard")}
-              </button>
-            ) : null}
             <button className={screen === "home" ? "active" : ""} type="button" onClick={() => goToScreen("home")}>
               <HomeIcon size={18} />
               {translate(language, "nav.home")}
             </button>
-            {currentUser.role === "admin" ? (
-              <>
-                <button className={screen === "tasks" ? "active" : ""} type="button" onClick={() => goToScreen("tasks")}>
-                  <ListChecks size={18} />
-                  {translate(language, "nav.tasks")}
-                </button>
-                <button className={screen === "records" ? "active" : ""} type="button" onClick={() => goToScreen("records")}>
-                  <ClipboardList size={18} />
-                  {translate(language, "nav.records")}
-                </button>
-              </>
-            ) : null}
             <button type="button" onClick={logout}>
               <LogOut size={18} />
               {translate(language, "auth.logout")}
             </button>
           </nav>
         ) : null}
-        {currentUser?.role === "admin" && screen === "dashboard" ? (
+        {isAdmin ? (
           <AdminDashboard
             records={records}
             areas={visibleAreas}
+            recordsAreas={[...visibleAreas, ...baseAreasWithTasks]}
+            taskManagerAreas={taskManagerAreas}
+            tasks={tasks}
             users={users}
             branches={branches}
             selectedBranchId={selectedBranchId}
             currentUser={currentUser}
             onBranchChange={handleBranchChange}
             onBranchesChange={updateBranches}
+            onTasksChange={updateTasks}
             onUsersChange={updateUsers}
+            onLogout={logout}
           />
         ) : null}
-        {currentUser && screen === "home" ? (
+        {currentUser && !isAdmin && screen === "home" ? (
           <>
             <Home
               employees={users}
@@ -392,14 +378,10 @@ function App() {
             <WeeklyTasksView areas={availableAreas} allAreas={visibleAreas} records={selectedBranchRecords} users={users} employee={currentUser} onSave={saveRecord} />
           </>
         ) : null}
-        {screen === "wizard" && selectedArea && (currentUser ?? selectedEmployee) ? (
+        {!isAdmin && screen === "wizard" && selectedArea && (currentUser ?? selectedEmployee) ? (
           <CleaningWizard area={{ ...selectedArea, tasks: selectedArea.tasks.filter((task) => task.frequency === "daily") }} employee={(currentUser ?? selectedEmployee)!} onSave={saveRecord} />
         ) : null}
-        {screen === "final" && lastRecord ? <FinalScreen record={lastRecord} onRestart={restart} /> : null}
-        {currentUser?.role === "admin" && screen === "tasks" ? <TaskManager areas={taskManagerAreas} tasks={tasks} onTasksChange={updateTasks} /> : null}
-        {currentUser?.role === "admin" && screen === "records" ? (
-          <RecordsView records={records} areas={[...visibleAreas, ...baseAreasWithTasks]} employees={users} branches={branches} selectedBranchId={selectedBranchId} onBranchChange={handleBranchChange} />
-        ) : null}
+        {!isAdmin && screen === "final" && lastRecord ? <FinalScreen record={lastRecord} onRestart={restart} /> : null}
       </main>
     </I18nContext.Provider>
   );
