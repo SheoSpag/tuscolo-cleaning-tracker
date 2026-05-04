@@ -224,8 +224,8 @@ function App() {
 
   return (
     <I18nContext.Provider value={i18nValue}>
-      <main className="app-shell">
-        <Header />
+      <main className={currentUser ? "app-shell" : "app-shell auth-shell"}>
+        <Header compact={!currentUser} />
         {!currentUser ? <AuthView users={users} onLogin={login} onStartRegister={startRegister} onVerifyRegister={verifyRegister} error={error} /> : null}
         {currentUser ? (
           <nav className="app-nav" aria-label={translate(language, "nav.aria")}>

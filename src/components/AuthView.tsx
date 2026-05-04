@@ -181,10 +181,11 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
   return (
     <section className="auth-layout">
       <div className="intro-panel auth-hero">
-        <LogIn size={34} />
         <p>{t("auth.kicker")}</p>
-        <h2>Tuscolo</h2>
+        <h2>Tuscolo Cleaning Tracker</h2>
         <span>{t("app.slogan")}</span>
+        <div className="italian-rule" aria-hidden="true" />
+        <strong>{t("auth.heroCopy")}</strong>
       </div>
 
       <form
@@ -194,6 +195,13 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
           submit();
         }}
       >
+        {mode === "register" && registerStep === "verify" ? null : (
+          <div className="auth-panel-heading">
+            <h2>{mode === "login" ? t("auth.welcome") : t("auth.register")}</h2>
+            <p>{mode === "login" ? t("auth.loginSubtitle") : t("auth.registerSubtitle")}</p>
+          </div>
+        )}
+
         <div className="auth-tabs">
           <button className={mode === "login" ? "active" : ""} type="button" onClick={() => switchMode("login")}>
             <LogIn size={17} />

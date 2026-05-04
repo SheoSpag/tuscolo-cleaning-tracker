@@ -1,19 +1,23 @@
-import { Sparkles } from "lucide-react";
+import { UtensilsCrossed } from "lucide-react";
 import { useI18n } from "../i18n/I18nContext";
 import { LanguageSelector } from "./LanguageSelector";
 
-export function Header() {
+type HeaderProps = {
+  compact?: boolean;
+};
+
+export function Header({ compact = false }: HeaderProps) {
   const { t } = useI18n();
 
   return (
-    <header className="app-header">
+    <header className={compact ? "app-header compact-header" : "app-header"}>
       <div className="brand-mark" aria-hidden="true">
-        <Sparkles size={22} />
+        <UtensilsCrossed size={22} />
       </div>
       <div className="brand-copy">
-        <p>{t("app.kicker")}</p>
-        <h1>{t("app.title")}</h1>
-        <span>{t("app.slogan")}</span>
+        {compact ? null : <p>{t("app.kicker")}</p>}
+        <h1>{compact ? "TUSCOLO" : t("app.title")}</h1>
+        {compact ? null : <span>{t("app.slogan")}</span>}
       </div>
       <LanguageSelector />
     </header>
