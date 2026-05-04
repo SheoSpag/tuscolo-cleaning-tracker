@@ -1,8 +1,9 @@
-import type { AppUser, CleaningRecord, CleaningTask } from "./types";
+import type { AppUser, Branch, CleaningRecord, CleaningTask } from "./types";
 
 export type ApiState = {
   currentUser: AppUser;
   users: AppUser[];
+  branches: Branch[];
   tasks: CleaningTask[];
   records: CleaningRecord[];
 };
@@ -62,14 +63,19 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ tasks }),
     }),
+  saveBranches: (branches: Branch[]) =>
+    request<{ branches: Branch[] }>("/api/branches", {
+      method: "PUT",
+      body: JSON.stringify({ branches }),
+    }),
   saveRecord: (record: CleaningRecord) =>
     request<{ record: CleaningRecord }>("/api/records", {
       method: "POST",
       body: JSON.stringify(record),
     }),
-  updateUserRole: (userId: string, role: AppUser["role"], assignedSectorIds?: string[]) =>
+  updateUserRole: (userId: string, role: AppUser["role"], assignedSectorIds?: string[], assignedBranchIds?: string[]) =>
     request<{ user: AppUser }>(`/api/users/${userId}/role`, {
       method: "PATCH",
-      body: JSON.stringify({ role, assignedSectorIds }),
+      body: JSON.stringify({ role, assignedSectorIds, assignedBranchIds }),
     }),
 };

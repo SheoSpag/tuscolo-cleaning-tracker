@@ -17,12 +17,31 @@ const sessionSecret = process.env.SESSION_SECRET || "dev-only-change-me";
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 40 * 1024 * 1024);
 const maxRecordPhotoBytes = Number(process.env.MAX_RECORD_PHOTO_BYTES || 32 * 1024 * 1024);
 const supportedLanguages = new Set(["es", "de", "en", "it"]);
+const supportedOperationalAreaIds = new Set(["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule"]);
 const supportedSectorIds = new Set(["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule", "management"]);
 const legacySectorAssignments = {
   kitchen: ["kitchen-pasta", "kitchen-salad", "kitchen-pizza"],
 };
 const verificationCodes = new Map();
 const rateLimits = new Map();
+
+const defaultBranches = [
+  {
+    id: "branch-centro",
+    name: "Tuscolo Centro",
+    areaIds: [...supportedOperationalAreaIds],
+  },
+  {
+    id: "branch-norte",
+    name: "Tuscolo Norte",
+    areaIds: ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule"],
+  },
+  {
+    id: "branch-sur",
+    name: "Tuscolo Sur",
+    areaIds: ["bar", "kitchen-pizza", "service", "spule"],
+  },
+];
 
 const defaultUsers = [
   {
@@ -32,6 +51,7 @@ const defaultUsers = [
     password: process.env.INITIAL_ADMIN_PASSWORD || "admin123",
     language: normalizeLanguage(process.env.INITIAL_ADMIN_LANGUAGE),
     role: "admin",
+    assignedBranchIds: defaultBranches.map((branch) => branch.id),
     assignedSectorIds: ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule", "management"],
   },
   {
@@ -41,6 +61,7 @@ const defaultUsers = [
     password: "prueba123",
     language: "es",
     role: "employee",
+    assignedBranchIds: ["branch-centro"],
     assignedSectorIds: ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule"],
   },
 ];
@@ -60,6 +81,31 @@ function normalizeSectorIds(sectorIds, fallback = []) {
         .filter((sectorId) => supportedSectorIds.has(sectorId)),
     ),
   ];
+}
+
+function normalizeBranchAreaIds(areaIds, fallback = [...supportedOperationalAreaIds]) {
+  if (!Array.isArray(areaIds)) return fallback;
+  return [...new Set(areaIds.map(String).filter((areaId) => supportedOperationalAreaIds.has(areaId)))];
+}
+
+function normalizeBranches(branches) {
+  const candidates = Array.isArray(branches) && branches.length ? branches : defaultBranches;
+  const normalized = candidates
+    .map((branch) => ({
+      id: String(branch?.id || "").trim(),
+      name: String(branch?.name || "").trim(),
+      areaIds: normalizeBranchAreaIds(branch?.areaIds),
+    }))
+    .filter((branch) => branch.id && branch.name);
+
+  const uniqueBranches = [...new Map(normalized.map((branch) => [branch.id, branch])).values()];
+  return uniqueBranches.length ? uniqueBranches : defaultBranches;
+}
+
+function normalizeBranchIds(branchIds, branches, fallback = []) {
+  const supportedBranchIds = new Set(branches.map((branch) => branch.id));
+  if (!Array.isArray(branchIds)) return fallback.filter((branchId) => supportedBranchIds.has(branchId));
+  return [...new Set(branchIds.map(String).filter((branchId) => supportedBranchIds.has(branchId)))];
 }
 
 function httpError(message, statusCode) {
@@ -169,6 +215,21 @@ function validateTasksPayload(tasks) {
   return null;
 }
 
+function validateBranchesPayload(branches) {
+  if (!Array.isArray(branches)) return "Branches must be an array";
+  if (branches.length < 1) return "At least one branch is required";
+  const seenIds = new Set();
+  for (const branch of branches) {
+    if (!branch || typeof branch !== "object") return "Invalid branch";
+    if (!branch.id || !branch.name) return "Missing branch fields";
+    if (seenIds.has(branch.id)) return "Duplicated branch id";
+    seenIds.add(branch.id);
+    if (!Array.isArray(branch.areaIds)) return "Branch areas must be an array";
+    if (branch.areaIds.some((areaId) => !supportedOperationalAreaIds.has(String(areaId)))) return "Invalid branch area";
+  }
+  return null;
+}
+
 function checkRateLimit(req, bucket, limit, windowMs) {
   const ip = req.socket.remoteAddress ?? "unknown";
   const key = `${bucket}:${ip}`;
@@ -198,6 +259,9 @@ function publicUser(user) {
 }
 
 function normalizeDb(db) {
+  const branches = normalizeBranches(db.branches);
+  const fallbackBranchId = branches[0]?.id ?? defaultBranches[0].id;
+  const defaultAdminBranchIds = branches.map((branch) => branch.id);
   const usersWithoutRetiredSeeds = (db.users ?? []).filter((user) => !retiredSeedUserIds.has(user.id));
   const existingIds = new Set(usersWithoutRetiredSeeds.map((user) => user.id));
   const existingEmails = new Set(usersWithoutRetiredSeeds.map((user) => user.email.toLowerCase()));
@@ -214,6 +278,10 @@ function normalizeDb(db) {
     seededAdmin.email = process.env.INITIAL_ADMIN_EMAIL || seededAdmin.email || defaultAdmin.email;
     seededAdmin.language = normalizeLanguage(process.env.INITIAL_ADMIN_LANGUAGE || seededAdmin.language);
     seededAdmin.assignedSectorIds = normalizeSectorIds(seededAdmin.assignedSectorIds, defaultAdmin.assignedSectorIds);
+    seededAdmin.assignedBranchIds = normalizeBranchIds(seededAdmin.assignedBranchIds, branches, defaultAdminBranchIds);
+    if (!seededAdmin.assignedBranchIds.length) {
+      seededAdmin.assignedBranchIds = defaultAdminBranchIds;
+    }
     if (process.env.INITIAL_ADMIN_PASSWORD && !verifyPassword(process.env.INITIAL_ADMIN_PASSWORD, seededAdmin.passwordHash)) {
       seededAdmin.passwordHash = hashPassword(process.env.INITIAL_ADMIN_PASSWORD);
     }
@@ -227,6 +295,7 @@ function normalizeDb(db) {
     seededTestUser.language = normalizeLanguage(seededTestUser.language || defaultTestUser.language);
     seededTestUser.role = "employee";
     seededTestUser.assignedSectorIds = normalizeSectorIds(seededTestUser.assignedSectorIds, defaultTestUser.assignedSectorIds);
+    seededTestUser.assignedBranchIds = normalizeBranchIds(seededTestUser.assignedBranchIds, branches, defaultTestUser.assignedBranchIds ?? [fallbackBranchId]);
     if (!seededTestUser.passwordHash || !verifyPassword(defaultTestUser.password, seededTestUser.passwordHash)) {
       seededTestUser.passwordHash = hashPassword(defaultTestUser.password);
     }
@@ -234,10 +303,16 @@ function normalizeDb(db) {
 
   for (const user of users) {
     user.assignedSectorIds = normalizeSectorIds(user.assignedSectorIds, user.role === "admin" ? defaultAdmin.assignedSectorIds : []);
+    const fallbackBranchIds = user.role === "admin" ? defaultAdminBranchIds : [fallbackBranchId];
+    user.assignedBranchIds = normalizeBranchIds(user.assignedBranchIds, branches, fallbackBranchIds);
+    if (user.role === "admin" && !user.assignedBranchIds.length) {
+      user.assignedBranchIds = defaultAdminBranchIds;
+    }
   }
 
   return {
     ...db,
+    branches,
     users,
     tasks: db.tasks ?? [],
     records: db.records ?? [],
@@ -247,6 +322,7 @@ function normalizeDb(db) {
 async function createInitialDb() {
   return {
     users: defaultUsers.map(({ password, ...user }) => ({ ...user, passwordHash: hashPassword(password) })),
+    branches: defaultBranches,
     tasks: await loadSeedTasks(),
     records: [],
   };
@@ -377,6 +453,7 @@ async function handleApi(req, res, url) {
     sendJson(res, 200, {
       currentUser: publicUser(authUser),
       users: isAdmin ? db.users.map(publicUser) : [publicUser(authUser)],
+      branches: db.branches,
       tasks: db.tasks,
       records: isAdmin ? db.records : db.records.filter((record) => record.employeeId === authUser.id),
     });
@@ -426,6 +503,7 @@ async function handleApi(req, res, url) {
         email,
         language: normalizedLanguage,
         role: "employee",
+        assignedBranchIds: [],
         assignedSectorIds: [],
         passwordHash: hashPassword(password),
       },
@@ -474,6 +552,35 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  if (req.method === "PUT" && url.pathname === "/api/branches") {
+    const authUser = requireAdmin(req, res, db);
+    if (!authUser) return;
+
+    const { branches } = await readBody(req);
+    const validationError = validateBranchesPayload(branches);
+    if (validationError) {
+      sendJson(res, 400, { error: validationError });
+      return;
+    }
+    db.branches = normalizeBranches(branches);
+    const branchIds = new Set(db.branches.map((branch) => branch.id));
+    for (const user of db.users) {
+      const fallback = user.role === "admin" ? db.branches.map((branch) => branch.id) : [];
+      user.assignedBranchIds = normalizeBranchIds(user.assignedBranchIds, db.branches, fallback);
+      if (!user.assignedBranchIds.length && user.role === "employee") {
+        user.assignedSectorIds = normalizeSectorIds(user.assignedSectorIds, []);
+      }
+      user.assignedSectorIds = normalizeSectorIds(user.assignedSectorIds, user.role === "admin" ? ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule", "management"] : []);
+      if (!user.assignedSectorIds.length && user.role === "admin") {
+        user.assignedSectorIds = ["management"];
+      }
+      user.assignedBranchIds = user.assignedBranchIds.filter((branchId) => branchIds.has(branchId));
+    }
+    await writeDb(db);
+    sendJson(res, 200, { branches: db.branches });
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/api/records") {
     const authUser = requireAuth(req, res, db);
     if (!authUser) return;
@@ -499,7 +606,7 @@ async function handleApi(req, res, url) {
     const authUser = requireAdmin(req, res, db);
     if (!authUser) return;
 
-    const { role, assignedSectorIds } = await readBody(req);
+    const { role, assignedSectorIds, assignedBranchIds } = await readBody(req);
     if (role !== "admin" && role !== "employee") {
       sendJson(res, 400, { error: "Invalid role" });
       return;
@@ -516,6 +623,12 @@ async function handleApi(req, res, url) {
     user.role = role;
     if (Array.isArray(assignedSectorIds)) {
       user.assignedSectorIds = normalizeSectorIds(assignedSectorIds, user.assignedSectorIds);
+    }
+    if (Array.isArray(assignedBranchIds)) {
+      user.assignedBranchIds = normalizeBranchIds(assignedBranchIds, db.branches, user.assignedBranchIds ?? []);
+      if (user.role === "admin" && !user.assignedBranchIds.length) {
+        user.assignedBranchIds = db.branches.map((branch) => branch.id);
+      }
     }
     await writeDb(db);
     sendJson(res, 200, { user: publicUser(user) });

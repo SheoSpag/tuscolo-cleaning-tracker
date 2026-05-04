@@ -1320,6 +1320,10 @@ input:focus {
   background: var(--color-danger);
 }
 
+.pending-dot {
+  background: #d5dac6;
+}
+
 .bar-list {
   display: grid;
   gap: 10px;
@@ -1366,6 +1370,82 @@ input:focus {
   font-weight: 800;
 }
 
+.branch-manager {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+}
+
+.branch-manager-header,
+.branch-controls,
+.user-row-header {
+  display: grid;
+  gap: 10px;
+}
+
+.branch-manager-header {
+  grid-template-columns: 1fr auto;
+  align-items: start;
+}
+
+.branch-manager-header p,
+.branch-area-panel > span {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.branch-manager-header h3 {
+  margin: 2px 0 0;
+  font-size: 1.2rem;
+}
+
+.branch-manager-header svg {
+  color: var(--color-secondary);
+}
+
+.branch-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.danger-action {
+  color: var(--color-danger);
+}
+
+.danger-action:disabled {
+  color: #969a8d;
+}
+
+.branch-area-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.branch-area-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 8px;
+}
+
+.branch-area-grid label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 12px;
+  color: var(--color-secondary-dark);
+  background: var(--color-soft);
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  font-weight: 800;
+}
+
 .user-management {
   display: grid;
   gap: 14px;
@@ -1386,6 +1466,36 @@ input:focus {
   color: var(--color-secondary);
 }
 
+.user-management-toolbar {
+  display: grid;
+  gap: 10px;
+}
+
+.search-field > div {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+}
+
+.search-field svg {
+  align-self: center;
+  justify-self: center;
+  color: var(--color-secondary);
+}
+
+.search-field input {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.search-field input:focus {
+  box-shadow: none;
+}
+
 .user-list {
   display: grid;
   gap: 10px;
@@ -1400,7 +1510,11 @@ input:focus {
   background: var(--color-soft);
 }
 
-.user-row div {
+.user-row-header {
+  align-items: start;
+}
+
+.user-row-header > div {
   display: grid;
   gap: 3px;
 }
@@ -1408,6 +1522,79 @@ input:focus {
 .user-row span {
   color: var(--color-muted);
   font-size: 0.88rem;
+}
+
+.branch-pill {
+  width: max-content;
+  padding: 6px 9px;
+  color: #7b5440;
+  background: #fff4ee;
+  border: 1px solid #f0d6c8;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.branch-pill.active {
+  color: var(--color-secondary-dark);
+  background: #eef2e4;
+  border-color: #d8dfc9;
+}
+
+.role-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+}
+
+.role-toggle button,
+.branch-toggle {
+  min-height: 40px;
+  color: var(--color-secondary-dark);
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  font-weight: 900;
+}
+
+.role-toggle button.active {
+  color: white;
+  background: var(--color-secondary);
+}
+
+.role-toggle button:disabled,
+.branch-toggle:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.branch-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+  background: #fff;
+  border: 1px solid var(--color-line);
+}
+
+.branch-toggle.active {
+  background: #eef2e4;
+  border-color: #d8dfc9;
+}
+
+.disabled-option {
+  opacity: 0.55;
+}
+
+.compact-select {
+  width: auto;
+  min-height: 42px;
+  padding: 8px 34px 8px 12px;
 }
 
 .task-manager {
@@ -1738,8 +1925,31 @@ a {
     grid-template-columns: 1fr 1fr;
   }
 
+  .branch-controls {
+    grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) auto;
+    align-items: end;
+  }
+
+  .branch-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .user-management-toolbar {
+    grid-template-columns: minmax(280px, 1fr) auto;
+    align-items: end;
+  }
+
   .user-row {
-    grid-template-columns: 1fr 190px;
+    grid-template-columns: minmax(220px, 1fr) minmax(190px, 0.65fr) minmax(210px, 0.7fr);
+    align-items: center;
+  }
+
+  .user-row .sector-checkboxes {
+    grid-column: 1 / -1;
+  }
+
+  .user-row-header {
+    grid-template-columns: 1fr auto;
     align-items: center;
   }
 

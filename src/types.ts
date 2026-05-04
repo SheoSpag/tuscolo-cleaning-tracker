@@ -5,6 +5,12 @@ export type UserRole = "admin" | "employee";
 export type CleaningFrequency = "daily" | "weekly";
 export type CleaningRecordType = "daily" | "weekly" | "weekly-review";
 
+export type Branch = {
+  id: string;
+  name: string;
+  areaIds: string[];
+};
+
 export type Employee = {
   id: string;
   name: string;
@@ -15,6 +21,7 @@ export type AppUser = Employee & {
   email: string;
   password?: string;
   role: UserRole;
+  assignedBranchIds?: string[];
   assignedSectorIds?: string[];
 };
 
@@ -42,6 +49,7 @@ export type TaskResult = {
 export type CleaningRecord = {
   id: string;
   employeeId: string;
+  branchId?: string;
   areaId: string;
   sectorId?: string;
   recordType?: CleaningRecordType;

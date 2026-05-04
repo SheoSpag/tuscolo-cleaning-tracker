@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, ClipboardList, HomeIcon, ListChecks, LogOut } from "lucide-react";
-import { areas as baseAreas, defaultTasks, defaultUsers } from "./data/mockData";
+import { areas as baseAreas, defaultBranches, defaultTasks, defaultUsers } from "./data/mockData";
 import { I18nContext } from "./i18n/I18nContext";
 import { translate } from "./i18n/translations";
-import type { AppUser, CleaningRecord, CleaningTask, Language } from "./types";
+import type { AppUser, Branch, CleaningRecord, CleaningTask, Language } from "./types";
 import { Header } from "./components/Header";
 import { Home } from "./components/Home";
 import { CleaningWizard } from "./components/CleaningWizard";
@@ -14,11 +14,12 @@ import { AuthView } from "./components/AuthView";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { WeeklyTasksView } from "./components/WeeklyTasksView";
 import { api, clearAuthToken, setAuthToken, type ApiState } from "./api";
-import { buildCleaningGroups, isOperationalGroupId, isTaskManagerGroupId, isVisibleGroupId, normalizeGroupAssignments } from "./data/cleaningGroups";
+import { buildCleaningGroups, isOperationalGroupId, isTaskManagerGroupId, isVisibleGroupId, normalizeGroupAssignments, operationalGroupIds } from "./data/cleaningGroups";
 
 const storageKey = "tuscolo-cleaning-records";
 const taskStorageKey = "tuscolo-cleaning-tasks";
 const usersStorageKey = "tuscolo-users";
+const branchesStorageKey = "tuscolo-branches";
 
 type Screen = "home" | "wizard" | "final" | "dashboard" | "tasks" | "records";
 
@@ -47,19 +48,44 @@ function loadUsers(): AppUser[] {
     const storedEmails = new Set(storedUsers.map((user) => user.email.toLowerCase()));
     return [...defaultUsers.filter((user) => !storedEmails.has(user.email.toLowerCase())), ...storedUsers].map((user) => ({
       ...user,
+      assignedBranchIds: Array.isArray(user.assignedBranchIds) ? user.assignedBranchIds : user.role === "admin" ? defaultBranches.map((branch) => branch.id) : [defaultBranches[0].id],
       assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds),
     }));
   } catch {
-    return defaultUsers.map((user) => ({ ...user, assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds) }));
+    return defaultUsers.map((user) => ({
+      ...user,
+      assignedBranchIds: Array.isArray(user.assignedBranchIds) ? user.assignedBranchIds : user.role === "admin" ? defaultBranches.map((branch) => branch.id) : [defaultBranches[0].id],
+      assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds),
+    }));
+  }
+}
+
+function normalizeBranch(branch: Branch): Branch {
+  const operationalIds = new Set<string>(operationalGroupIds);
+  const sourceAreaIds = Array.isArray(branch.areaIds) ? branch.areaIds : operationalGroupIds;
+  const areaIds = [...new Set(sourceAreaIds.filter((areaId) => operationalIds.has(areaId)))];
+  return { ...branch, areaIds };
+}
+
+function loadBranches(): Branch[] {
+  try {
+    const raw = localStorage.getItem(branchesStorageKey);
+    const storedBranches = raw ? (JSON.parse(raw) as Branch[]) : [];
+    const storedIds = new Set(storedBranches.map((branch) => branch.id));
+    return [...defaultBranches.filter((branch) => !storedIds.has(branch.id)), ...storedBranches].map(normalizeBranch);
+  } catch {
+    return defaultBranches.map(normalizeBranch);
   }
 }
 
 function App() {
   const [language, setLanguage] = useState<Language>("es");
   const [users, setUsers] = useState<AppUser[]>(loadUsers);
+  const [branches, setBranches] = useState<Branch[]>(loadBranches);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [selectedAreaId, setSelectedAreaId] = useState("");
+  const [selectedBranchId, setSelectedBranchId] = useState(defaultBranches[0].id);
   const [screen, setScreen] = useState<Screen>("home");
   const [error, setError] = useState("");
   const [records, setRecords] = useState<CleaningRecord[]>(loadRecords);
@@ -67,12 +93,28 @@ function App() {
   const [lastRecord, setLastRecord] = useState<CleaningRecord | null>(null);
 
   const applyRemoteState = (state: ApiState) => {
-    setUsers(state.users.map((user) => ({ ...user, assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds) })));
+    const nextBranches = (state.branches?.length ? state.branches : defaultBranches).map(normalizeBranch);
+    setBranches(nextBranches);
+    setUsers(state.users.map((user) => ({
+      ...user,
+      assignedBranchIds: Array.isArray(user.assignedBranchIds) ? user.assignedBranchIds : user.role === "admin" ? nextBranches.map((branch) => branch.id) : [nextBranches[0]?.id ?? defaultBranches[0].id],
+      assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds),
+    })));
     setTasks(state.tasks);
     setRecords(state.records);
-    setCurrentUser(state.currentUser);
+    const nextCurrentUser = {
+      ...state.currentUser,
+      assignedBranchIds: Array.isArray(state.currentUser.assignedBranchIds)
+        ? state.currentUser.assignedBranchIds
+        : state.currentUser.role === "admin"
+          ? nextBranches.map((branch) => branch.id)
+          : [nextBranches[0]?.id ?? defaultBranches[0].id],
+      assignedSectorIds: normalizeGroupAssignments(state.currentUser.assignedSectorIds),
+    };
+    setCurrentUser(nextCurrentUser);
     setSelectedEmployeeId(state.currentUser.id);
     setLanguage(state.currentUser.language);
+    setSelectedBranchId(nextCurrentUser.assignedBranchIds?.[0] ?? nextBranches[0]?.id ?? defaultBranches[0].id);
     setScreen(state.currentUser.role === "admin" ? "dashboard" : "home");
   };
 
@@ -90,12 +132,28 @@ function App() {
   const areas = useMemo(() => buildCleaningGroups(tasks), [tasks]);
   const visibleAreas = useMemo(() => areas.filter((area) => isVisibleGroupId(area.id)), [areas]);
   const taskManagerAreas = useMemo(() => areas.filter((area) => isTaskManagerGroupId(area.id)), [areas]);
+  const selectedBranch = branches.find((branch) => branch.id === selectedBranchId) ?? branches[0];
+  const availableBranches = useMemo(() => {
+    if (!currentUser) return branches;
+    if (currentUser.role === "admin") return branches;
+    const assignedBranchIds = new Set(currentUser.assignedBranchIds?.length ? currentUser.assignedBranchIds : []);
+    return branches.filter((branch) => assignedBranchIds.has(branch.id));
+  }, [branches, currentUser]);
   const availableAreas = useMemo(() => {
     if (!currentUser) return visibleAreas;
-    if (currentUser.role === "admin") return visibleAreas;
+    const branchAreaIds = new Set(selectedBranch?.areaIds ?? []);
+    const branchAreas = visibleAreas.filter((area) => area.id === "management" || branchAreaIds.has(area.id));
+    if (currentUser.role === "admin") return branchAreas;
+    const assignedBranchIds = new Set(currentUser.assignedBranchIds ?? []);
+    if (!assignedBranchIds.has(selectedBranchId)) return [];
     const assignedSectorIds = new Set<string>(normalizeGroupAssignments(currentUser.assignedSectorIds));
-    return visibleAreas.filter((area) => assignedSectorIds.has(area.id));
-  }, [currentUser, visibleAreas]);
+    return branchAreas.filter((area) => assignedSectorIds.has(area.id));
+  }, [currentUser, selectedBranch, selectedBranchId, visibleAreas]);
+  const fallbackBranchId = branches[0]?.id ?? defaultBranches[0].id;
+  const selectedBranchRecords = useMemo(
+    () => records.filter((record) => (record.branchId ?? fallbackBranchId) === selectedBranchId),
+    [fallbackBranchId, records, selectedBranchId],
+  );
 
   const selectedEmployee = users.find((employee) => employee.id === selectedEmployeeId);
   const selectedArea = availableAreas.find((area) => area.id === selectedAreaId);
@@ -114,8 +172,30 @@ function App() {
     const employee = users.find((item) => item.id === employeeId);
     if (employee) {
       setLanguage(employee.language);
+      setSelectedBranchId(employee.assignedBranchIds?.[0] ?? fallbackBranchId);
+      setSelectedAreaId("");
     }
   };
+
+  const handleBranchChange = (branchId: string) => {
+    setSelectedBranchId(branchId);
+    setSelectedAreaId("");
+  };
+
+  useEffect(() => {
+    if (!currentUser || !availableBranches.length) return;
+    if (!availableBranches.some((branch) => branch.id === selectedBranchId)) {
+      setSelectedBranchId(availableBranches[0].id);
+      setSelectedAreaId("");
+    }
+  }, [availableBranches, currentUser, selectedBranchId]);
+
+  useEffect(() => {
+    if (!selectedAreaId) return;
+    if (!availableAreas.some((area) => area.id === selectedAreaId)) {
+      setSelectedAreaId("");
+    }
+  }, [availableAreas, selectedAreaId]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -157,16 +237,38 @@ function App() {
   };
 
   const updateUsers = (nextUsers: AppUser[]) => {
-    const normalizedUsers = nextUsers.map((user) => ({ ...user, assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds) }));
+    const fallbackBranchId = branches[0]?.id ?? defaultBranches[0].id;
+    const branchIds = new Set(branches.map((branch) => branch.id));
+    const normalizedUsers = nextUsers.map((user) => ({
+      ...user,
+      assignedBranchIds: (Array.isArray(user.assignedBranchIds) ? user.assignedBranchIds : user.role === "admin" ? branches.map((branch) => branch.id) : [fallbackBranchId]).filter((branchId) =>
+        branchIds.has(branchId),
+      ),
+      assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds),
+    }));
     const changedUsers = normalizedUsers.filter((nextUser) => {
       const previousUser = users.find((user) => user.id === nextUser.id);
-      return previousUser?.role !== nextUser.role || JSON.stringify(previousUser?.assignedSectorIds ?? []) !== JSON.stringify(nextUser.assignedSectorIds ?? []);
+      return (
+        previousUser?.role !== nextUser.role ||
+        JSON.stringify(previousUser?.assignedBranchIds ?? []) !== JSON.stringify(nextUser.assignedBranchIds ?? []) ||
+        JSON.stringify(previousUser?.assignedSectorIds ?? []) !== JSON.stringify(nextUser.assignedSectorIds ?? [])
+      );
     });
     setUsers(normalizedUsers);
     localStorage.setItem(usersStorageKey, JSON.stringify(normalizedUsers));
-    void Promise.all(changedUsers.map((user) => api.updateUserRole(user.id, user.role, user.assignedSectorIds))).catch(() => undefined);
+    void Promise.all(changedUsers.map((user) => api.updateUserRole(user.id, user.role, user.assignedSectorIds, user.assignedBranchIds))).catch(() => undefined);
     if (currentUser) {
       setCurrentUser(normalizedUsers.find((user) => user.id === currentUser.id) ?? currentUser);
+    }
+  };
+
+  const updateBranches = (nextBranches: Branch[]) => {
+    const normalizedBranches = nextBranches.map(normalizeBranch).filter((branch) => branch.name.trim());
+    setBranches(normalizedBranches);
+    localStorage.setItem(branchesStorageKey, JSON.stringify(normalizedBranches));
+    void api.saveBranches(normalizedBranches).catch(() => undefined);
+    if (!normalizedBranches.some((branch) => branch.id === selectedBranchId)) {
+      setSelectedBranchId(normalizedBranches[0]?.id ?? defaultBranches[0].id);
     }
   };
 
@@ -181,7 +283,7 @@ function App() {
   const startFlow = () => {
     const activeEmployee = currentUser ?? selectedEmployee;
 
-    if (!activeEmployee || !selectedArea) {
+    if (!activeEmployee || !selectedArea || !selectedBranch) {
       setError(translate(language, "errors.selectEmployeeArea"));
       return;
     }
@@ -198,11 +300,12 @@ function App() {
   };
 
   const saveRecord = (record: CleaningRecord) => {
-    const nextRecords = [record, ...records];
+    const recordWithBranch = { ...record, branchId: record.branchId ?? selectedBranch?.id ?? selectedBranchId };
+    const nextRecords = [recordWithBranch, ...records];
     setRecords(nextRecords);
     localStorage.setItem(storageKey, JSON.stringify(nextRecords));
-    void api.saveRecord(record).catch(() => undefined);
-    setLastRecord(record);
+    void api.saveRecord(recordWithBranch).catch(() => undefined);
+    setLastRecord(recordWithBranch);
     setScreen("final");
   };
 
@@ -258,22 +361,35 @@ function App() {
           </nav>
         ) : null}
         {currentUser?.role === "admin" && screen === "dashboard" ? (
-          <AdminDashboard records={records} areas={visibleAreas} tasks={tasks} users={users} currentUser={currentUser} onUsersChange={updateUsers} />
+          <AdminDashboard
+            records={records}
+            areas={visibleAreas}
+            users={users}
+            branches={branches}
+            selectedBranchId={selectedBranchId}
+            currentUser={currentUser}
+            onBranchChange={handleBranchChange}
+            onBranchesChange={updateBranches}
+            onUsersChange={updateUsers}
+          />
         ) : null}
         {currentUser && screen === "home" ? (
           <>
             <Home
               employees={users}
+              branches={availableBranches}
               areas={availableAreas.filter((area) => isOperationalGroupId(area.id))}
               selectedEmployeeId={currentUser?.id ?? selectedEmployeeId}
+              selectedBranchId={selectedBranchId}
               selectedAreaId={selectedAreaId}
               lockedEmployee={currentUser}
               error={error}
               onEmployeeChange={handleEmployeeChange}
+              onBranchChange={handleBranchChange}
               onAreaChange={setSelectedAreaId}
               onStart={startFlow}
             />
-            <WeeklyTasksView areas={availableAreas} allAreas={visibleAreas} records={records} users={users} employee={currentUser} onSave={saveRecord} />
+            <WeeklyTasksView areas={availableAreas} allAreas={visibleAreas} records={selectedBranchRecords} users={users} employee={currentUser} onSave={saveRecord} />
           </>
         ) : null}
         {screen === "wizard" && selectedArea && (currentUser ?? selectedEmployee) ? (
@@ -281,7 +397,9 @@ function App() {
         ) : null}
         {screen === "final" && lastRecord ? <FinalScreen record={lastRecord} onRestart={restart} /> : null}
         {currentUser?.role === "admin" && screen === "tasks" ? <TaskManager areas={taskManagerAreas} tasks={tasks} onTasksChange={updateTasks} /> : null}
-        {currentUser?.role === "admin" && screen === "records" ? <RecordsView records={records} areas={[...visibleAreas, ...baseAreasWithTasks]} employees={users} /> : null}
+        {currentUser?.role === "admin" && screen === "records" ? (
+          <RecordsView records={records} areas={[...visibleAreas, ...baseAreasWithTasks]} employees={users} branches={branches} selectedBranchId={selectedBranchId} onBranchChange={handleBranchChange} />
+        ) : null}
       </main>
     </I18nContext.Provider>
   );

@@ -1,6 +1,6 @@
 import { Eye, Printer, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { Area, CleaningRecord, Employee } from "../types";
+import type { Area, Branch, CleaningRecord, Employee } from "../types";
 import { useI18n } from "../i18n/I18nContext";
 import { translateTaskQuestion } from "../i18n/taskTranslations";
 
@@ -8,6 +8,9 @@ type RecordsViewProps = {
   records: CleaningRecord[];
   areas: Area[];
   employees: Employee[];
+  branches?: Branch[];
+  selectedBranchId?: string;
+  onBranchChange?: (branchId: string) => void;
 };
 
 type SummaryPeriod = "week" | "month";
@@ -20,7 +23,7 @@ function startOfWeek(date: Date) {
   return next;
 }
 
-export function RecordsView({ records, areas, employees }: RecordsViewProps) {
+export function RecordsView({ records, areas, employees, branches = [], selectedBranchId, onBranchChange }: RecordsViewProps) {
   const { language, t } = useI18n();
   const [period, setPeriod] = useState<SummaryPeriod>("month");
   const [selectedRecord, setSelectedRecord] = useState<CleaningRecord | null>(null);
@@ -38,6 +41,11 @@ export function RecordsView({ records, areas, employees }: RecordsViewProps) {
     () =>
       records.filter((record) => {
         const date = new Date(record.createdAt);
+        const fallbackBranchId = branches[0]?.id;
+        if (selectedBranchId && (record.branchId ?? fallbackBranchId) !== selectedBranchId) {
+          return false;
+        }
+
         if (period === "month") {
           return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
         }
@@ -47,12 +55,13 @@ export function RecordsView({ records, areas, employees }: RecordsViewProps) {
         end.setDate(start.getDate() + 7);
         return date >= start && date < end;
       }),
-    [records, period],
+    [branches, records, period, selectedBranchId],
   );
 
   const title = period === "month" ? formatter.format(now) : `${formatter.format(startOfWeek(now))} - ${formatter.format(new Date(startOfWeek(now).getTime() + 6 * 24 * 60 * 60 * 1000))}`;
   const findArea = (areaId: string) => areas.find((area) => area.id === areaId);
   const findEmployee = (employeeId: string) => employees.find((employee) => employee.id === employeeId);
+  const findBranch = (branchId?: string) => branches.find((branch) => branch.id === branchId);
   const photoCount = (record: CleaningRecord) => {
     const taskPhotoCount = record.taskResults?.reduce((sum, result) => sum + (result.photoUrls?.length ?? 0), 0) ?? 0;
     const recordPhotoCount = record.photoUrls?.length ?? (record.photoUrl ? 1 : 0);
@@ -84,6 +93,15 @@ export function RecordsView({ records, areas, employees }: RecordsViewProps) {
           <h2>{title}</h2>
         </div>
         <div className="records-actions print-hidden">
+          {branches.length && selectedBranchId && onBranchChange ? (
+            <select className="compact-select" value={selectedBranchId} onChange={(event) => onBranchChange(event.target.value)} aria-label={t("fields.branch")}>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <div className="segmented-control" role="tablist" aria-label={t("records.period")}>
             <button className={period === "week" ? "active" : ""} type="button" onClick={() => setPeriod("week")}>
               {t("records.weekly")}
@@ -106,6 +124,7 @@ export function RecordsView({ records, areas, employees }: RecordsViewProps) {
           <table>
             <thead>
               <tr>
+                {branches.length ? <th>{t("fields.branch")}</th> : null}
                 <th>{t("fields.area")}</th>
                 <th>{t("fields.employee")}</th>
                 <th>{t("fields.status")}</th>
@@ -119,6 +138,7 @@ export function RecordsView({ records, areas, employees }: RecordsViewProps) {
             <tbody>
               {currentRecords.map((record) => (
                 <tr key={record.id}>
+                  {branches.length ? <td>{findBranch(record.branchId ?? branches[0]?.id)?.name ?? t("common.noValue")}</td> : null}
                   <td>{t(findArea(record.areaId)?.nameKey ?? record.areaId)}</td>
                   <td>{findEmployee(record.employeeId)?.name ?? record.employeeId}</td>
                   <td>
