@@ -5,10 +5,16 @@ export type UserRole = "admin" | "employee";
 export type CleaningFrequency = "daily" | "weekly";
 export type CleaningRecordType = "daily" | "weekly" | "weekly-review";
 
+export type BranchArea = {
+  id: string;
+  name: string;
+};
+
 export type Branch = {
   id: string;
   name: string;
   areaIds: string[];
+  customAreas?: BranchArea[];
 };
 
 export type Employee = {

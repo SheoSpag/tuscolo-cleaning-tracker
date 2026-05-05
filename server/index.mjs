@@ -81,31 +81,61 @@ function normalizeLanguage(language) {
   return supportedLanguages.has(String(language)) ? String(language) : "es";
 }
 
-function normalizeSectorIds(sectorIds, fallback = []) {
-  if (!Array.isArray(sectorIds)) return fallback;
+function supportedSectorIdsForBranches(branches = defaultBranches) {
+  return new Set([
+    ...supportedSectorIds,
+    ...branches.flatMap((branch) => [
+      ...(Array.isArray(branch.areaIds) ? branch.areaIds.map(String) : []),
+      ...(Array.isArray(branch.customAreas) ? branch.customAreas.map((area) => String(area.id)) : []),
+    ]),
+  ]);
+}
+
+function normalizeSectorIds(sectorIds, fallback = [], allowedSectorIds = supportedSectorIds) {
+  const source = Array.isArray(sectorIds) ? sectorIds : fallback;
   return [
     ...new Set(
-      sectorIds
+      source
         .map(String)
         .flatMap((sectorId) => legacySectorAssignments[sectorId] ?? [sectorId])
-        .filter((sectorId) => supportedSectorIds.has(sectorId)),
+        .filter((sectorId) => allowedSectorIds.has(sectorId)),
     ),
   ];
 }
 
-function normalizeBranchAreaIds(areaIds, fallback = [...supportedOperationalAreaIds]) {
-  if (!Array.isArray(areaIds)) return fallback;
-  return [...new Set(areaIds.map(String).filter((areaId) => supportedOperationalAreaIds.has(areaId)))];
+function normalizeCustomAreas(customAreas) {
+  if (!Array.isArray(customAreas)) return [];
+  return [
+    ...new Map(
+      customAreas
+        .map((area) => ({
+          id: String(area?.id || "").trim(),
+          name: String(area?.name || "").trim(),
+        }))
+        .filter((area) => area.id && area.name)
+        .map((area) => [area.id, area]),
+    ).values(),
+  ];
+}
+
+function normalizeBranchAreaIds(areaIds, customAreas = [], fallback = [...supportedOperationalAreaIds]) {
+  const allowedAreaIds = new Set([...supportedOperationalAreaIds, ...customAreas.map((area) => area.id)]);
+  const source = Array.isArray(areaIds) ? areaIds : fallback;
+  return [...new Set(source.map(String).filter((areaId) => allowedAreaIds.has(areaId)))];
 }
 
 function normalizeBranches(branches) {
   const candidates = Array.isArray(branches) && branches.length ? branches : defaultBranches;
   const normalized = candidates
-    .map((branch) => ({
-      id: String(branch?.id || "").trim(),
-      name: String(branch?.name || "").trim(),
-      areaIds: normalizeBranchAreaIds(branch?.areaIds),
-    }))
+    .map((branch) => {
+      const customAreas = normalizeCustomAreas(branch?.customAreas);
+      return {
+        id: String(branch?.id || "").trim(),
+        name: String(branch?.name || "").trim(),
+        areaIds: normalizeBranchAreaIds(branch?.areaIds, customAreas),
+        customAreas,
+      };
+    })
     .filter((branch) => branch.id && branch.name);
 
   const uniqueBranches = [...new Map(normalized.map((branch) => [branch.id, branch])).values()];
@@ -234,8 +264,18 @@ function validateBranchesPayload(branches) {
     if (!branch.id || !branch.name) return "Missing branch fields";
     if (seenIds.has(branch.id)) return "Duplicated branch id";
     seenIds.add(branch.id);
+    if (branch.customAreas !== undefined && !Array.isArray(branch.customAreas)) return "Branch custom areas must be an array";
+    const seenCustomAreaIds = new Set();
+    const customAreas = Array.isArray(branch.customAreas) ? branch.customAreas : [];
+    for (const area of customAreas) {
+      if (!area || typeof area !== "object") return "Invalid custom area";
+      if (!String(area.id || "").trim() || !String(area.name || "").trim()) return "Missing custom area fields";
+      if (seenCustomAreaIds.has(String(area.id))) return "Duplicated custom area id";
+      seenCustomAreaIds.add(String(area.id));
+    }
     if (!Array.isArray(branch.areaIds)) return "Branch areas must be an array";
-    if (branch.areaIds.some((areaId) => !supportedOperationalAreaIds.has(String(areaId)))) return "Invalid branch area";
+    const allowedAreaIds = new Set([...supportedOperationalAreaIds, ...seenCustomAreaIds]);
+    if (branch.areaIds.some((areaId) => !allowedAreaIds.has(String(areaId)))) return "Invalid branch area";
   }
   return null;
 }
@@ -270,6 +310,7 @@ function publicUser(user) {
 
 function normalizeDb(db) {
   const branches = normalizeBranches(db.branches);
+  const allowedSectorIds = supportedSectorIdsForBranches(branches);
   const fallbackBranchId = branches[0]?.id ?? defaultBranches[0].id;
   const defaultAdminBranchIds = branches.map((branch) => branch.id);
   const usersWithoutRetiredSeeds = (db.users ?? []).filter((user) => !retiredSeedUserIds.has(user.id));
@@ -287,7 +328,7 @@ function normalizeDb(db) {
     seededAdmin.name = process.env.INITIAL_ADMIN_NAME || seededAdmin.name || defaultAdmin.name;
     seededAdmin.email = process.env.INITIAL_ADMIN_EMAIL || seededAdmin.email || defaultAdmin.email;
     seededAdmin.language = normalizeLanguage(process.env.INITIAL_ADMIN_LANGUAGE || seededAdmin.language);
-    seededAdmin.assignedSectorIds = normalizeSectorIds(seededAdmin.assignedSectorIds, defaultAdmin.assignedSectorIds);
+    seededAdmin.assignedSectorIds = normalizeSectorIds(seededAdmin.assignedSectorIds, defaultAdmin.assignedSectorIds, allowedSectorIds);
     seededAdmin.assignedBranchIds = normalizeBranchIds(seededAdmin.assignedBranchIds, branches, defaultAdminBranchIds);
     if (!seededAdmin.assignedBranchIds.length) {
       seededAdmin.assignedBranchIds = defaultAdminBranchIds;
@@ -304,7 +345,7 @@ function normalizeDb(db) {
     seededTestUser.email = seededTestUser.email || defaultTestUser.email;
     seededTestUser.language = normalizeLanguage(seededTestUser.language || defaultTestUser.language);
     seededTestUser.role = "employee";
-    seededTestUser.assignedSectorIds = normalizeSectorIds(seededTestUser.assignedSectorIds, defaultTestUser.assignedSectorIds);
+    seededTestUser.assignedSectorIds = normalizeSectorIds(seededTestUser.assignedSectorIds, defaultTestUser.assignedSectorIds, allowedSectorIds);
     seededTestUser.assignedBranchIds = normalizeBranchIds(seededTestUser.assignedBranchIds, branches, defaultTestUser.assignedBranchIds ?? [fallbackBranchId]);
     if (!seededTestUser.passwordHash || !verifyPassword(defaultTestUser.password, seededTestUser.passwordHash)) {
       seededTestUser.passwordHash = hashPassword(defaultTestUser.password);
@@ -312,7 +353,7 @@ function normalizeDb(db) {
   }
 
   for (const user of users) {
-    user.assignedSectorIds = normalizeSectorIds(user.assignedSectorIds, user.role === "admin" ? defaultAdmin.assignedSectorIds : []);
+    user.assignedSectorIds = normalizeSectorIds(user.assignedSectorIds, user.role === "admin" ? defaultAdmin.assignedSectorIds : [], allowedSectorIds);
     const fallbackBranchIds = user.role === "admin" ? defaultAdminBranchIds : [fallbackBranchId];
     user.assignedBranchIds = normalizeBranchIds(user.assignedBranchIds, branches, fallbackBranchIds);
     if (user.role === "admin" && !user.assignedBranchIds.length) {
@@ -574,13 +615,14 @@ async function handleApi(req, res, url) {
     }
     db.branches = normalizeBranches(branches);
     const branchIds = new Set(db.branches.map((branch) => branch.id));
+    const allowedSectorIds = supportedSectorIdsForBranches(db.branches);
     for (const user of db.users) {
       const fallback = user.role === "admin" ? db.branches.map((branch) => branch.id) : [];
       user.assignedBranchIds = normalizeBranchIds(user.assignedBranchIds, db.branches, fallback);
       if (!user.assignedBranchIds.length && user.role === "employee") {
-        user.assignedSectorIds = normalizeSectorIds(user.assignedSectorIds, []);
+        user.assignedSectorIds = normalizeSectorIds(user.assignedSectorIds, [], allowedSectorIds);
       }
-      user.assignedSectorIds = normalizeSectorIds(user.assignedSectorIds, user.role === "admin" ? ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule", "management"] : []);
+      user.assignedSectorIds = normalizeSectorIds(user.assignedSectorIds, user.role === "admin" ? ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule", "management"] : [], allowedSectorIds);
       if (!user.assignedSectorIds.length && user.role === "admin") {
         user.assignedSectorIds = ["management"];
       }
@@ -631,8 +673,9 @@ async function handleApi(req, res, url) {
       return;
     }
     user.role = role;
+    const allowedSectorIds = supportedSectorIdsForBranches(db.branches);
     if (Array.isArray(assignedSectorIds)) {
-      user.assignedSectorIds = normalizeSectorIds(assignedSectorIds, user.assignedSectorIds);
+      user.assignedSectorIds = normalizeSectorIds(assignedSectorIds, user.assignedSectorIds, allowedSectorIds);
     }
     if (Array.isArray(assignedBranchIds)) {
       user.assignedBranchIds = normalizeBranchIds(assignedBranchIds, db.branches, user.assignedBranchIds ?? []);

@@ -3,7 +3,7 @@ import { History, HomeIcon, LogOut } from "lucide-react";
 import { areas as baseAreas, defaultBranches, defaultTasks, defaultUsers } from "./data/mockData";
 import { I18nContext } from "./i18n/I18nContext";
 import { translate } from "./i18n/translations";
-import type { AppUser, Branch, CleaningRecord, CleaningTask, Language } from "./types";
+import type { AppUser, Branch, BranchArea, CleaningRecord, CleaningTask, Language } from "./types";
 import { Header } from "./components/Header";
 import { Home } from "./components/Home";
 import { CleaningWizard } from "./components/CleaningWizard";
@@ -13,7 +13,7 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { WeeklyTasksView } from "./components/WeeklyTasksView";
 import { EmployeeHistory } from "./components/EmployeeHistory";
 import { api, clearAuthToken, setAuthToken, type ApiState } from "./api";
-import { buildCleaningGroups, isOperationalGroupId, isTaskManagerGroupId, isVisibleGroupId, normalizeGroupAssignments, operationalGroupIds } from "./data/cleaningGroups";
+import { buildCleaningGroups, isTaskManagerGroupId, isVisibleGroupId, normalizeGroupAssignments, operationalGroupIds } from "./data/cleaningGroups";
 
 const storageKey = "tuscolo-cleaning-records";
 const taskStorageKey = "tuscolo-cleaning-tasks";
@@ -51,30 +51,68 @@ function loadTasks(): CleaningTask[] {
   }
 }
 
+function sanitizeCustomAreas(branch: Branch): BranchArea[] {
+  const customAreas = Array.isArray(branch.customAreas) ? branch.customAreas : [];
+  return [
+    ...new Map(
+      customAreas
+        .map((area) => ({
+          id: String(area.id || "").trim(),
+          name: String(area.name || "").trim(),
+        }))
+        .filter((area) => area.id && area.name)
+        .map((area) => [area.id, area]),
+    ).values(),
+  ];
+}
+
+function normalizeBranch(branch: Branch): Branch {
+  const customAreas = sanitizeCustomAreas(branch);
+  const operationalIds = new Set<string>(operationalGroupIds);
+  const customAreaIds = new Set(customAreas.map((area) => area.id));
+  const sourceAreaIds = Array.isArray(branch.areaIds) ? branch.areaIds : operationalGroupIds;
+  const areaIds = [...new Set(sourceAreaIds.map(String).filter((areaId) => operationalIds.has(areaId) || customAreaIds.has(areaId)))];
+  return { ...branch, name: String(branch.name || "").trim(), areaIds, customAreas };
+}
+
+function loadBranchesForUserNormalization(): Branch[] {
+  try {
+    const raw = localStorage.getItem(branchesStorageKey);
+    const storedBranches = raw ? (JSON.parse(raw) as Branch[]) : [];
+    const storedIds = new Set(storedBranches.map((branch) => branch.id));
+    return [...defaultBranches.filter((branch) => !storedIds.has(branch.id)), ...storedBranches].map(normalizeBranch);
+  } catch {
+    return defaultBranches.map(normalizeBranch);
+  }
+}
+
+function normalizeUserSectorIds(sectorIds: string[] | undefined, branchList: Branch[]) {
+  const knownAssignments = normalizeGroupAssignments(sectorIds);
+  const knownOperationalIds = new Set<string>(operationalGroupIds);
+  const allowedCustomAreaIds = new Set(branchList.flatMap((branch) => branch.areaIds.filter((areaId) => !knownOperationalIds.has(areaId))));
+  const customAssignments = (sectorIds ?? []).map(String).filter((sectorId) => allowedCustomAreaIds.has(sectorId));
+  return [...new Set([...knownAssignments, ...customAssignments])];
+}
+
 function loadUsers(): AppUser[] {
   try {
     const raw = localStorage.getItem(usersStorageKey);
     const storedUsers = raw ? (JSON.parse(raw) as AppUser[]) : [];
     const storedEmails = new Set(storedUsers.map((user) => user.email.toLowerCase()));
+    const assignmentBranches = loadBranchesForUserNormalization();
     return [...defaultUsers.filter((user) => !storedEmails.has(user.email.toLowerCase())), ...storedUsers].map((user) => ({
       ...user,
       assignedBranchIds: Array.isArray(user.assignedBranchIds) ? user.assignedBranchIds : user.role === "admin" ? defaultBranches.map((branch) => branch.id) : [defaultBranches[0].id],
-      assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds),
+      assignedSectorIds: normalizeUserSectorIds(user.assignedSectorIds, assignmentBranches),
     }));
   } catch {
+    const assignmentBranches = defaultBranches.map(normalizeBranch);
     return defaultUsers.map((user) => ({
       ...user,
       assignedBranchIds: Array.isArray(user.assignedBranchIds) ? user.assignedBranchIds : user.role === "admin" ? defaultBranches.map((branch) => branch.id) : [defaultBranches[0].id],
-      assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds),
+      assignedSectorIds: normalizeUserSectorIds(user.assignedSectorIds, assignmentBranches),
     }));
   }
-}
-
-function normalizeBranch(branch: Branch): Branch {
-  const operationalIds = new Set<string>(operationalGroupIds);
-  const sourceAreaIds = Array.isArray(branch.areaIds) ? branch.areaIds : operationalGroupIds;
-  const areaIds = [...new Set(sourceAreaIds.filter((areaId) => operationalIds.has(areaId)))];
-  return { ...branch, areaIds };
 }
 
 function loadBranches(): Branch[] {
@@ -109,7 +147,7 @@ function App() {
     setUsers(state.users.map((user) => ({
       ...user,
       assignedBranchIds: Array.isArray(user.assignedBranchIds) ? user.assignedBranchIds : user.role === "admin" ? nextBranches.map((branch) => branch.id) : [nextBranches[0]?.id ?? defaultBranches[0].id],
-      assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds),
+      assignedSectorIds: normalizeUserSectorIds(user.assignedSectorIds, nextBranches),
     })));
     setTasks(state.tasks);
     setRecords(state.records);
@@ -120,7 +158,7 @@ function App() {
         : state.currentUser.role === "admin"
           ? nextBranches.map((branch) => branch.id)
           : [nextBranches[0]?.id ?? defaultBranches[0].id],
-      assignedSectorIds: normalizeGroupAssignments(state.currentUser.assignedSectorIds),
+      assignedSectorIds: normalizeUserSectorIds(state.currentUser.assignedSectorIds, nextBranches),
     };
     setCurrentUser(nextCurrentUser);
     setSelectedEmployeeId(state.currentUser.id);
@@ -141,8 +179,19 @@ function App() {
     [tasks],
   );
   const areas = useMemo(() => buildCleaningGroups(tasks), [tasks]);
-  const visibleAreas = useMemo(() => areas.filter((area) => isVisibleGroupId(area.id)), [areas]);
-  const taskManagerAreas = useMemo(() => areas.filter((area) => isTaskManagerGroupId(area.id)), [areas]);
+  const customAreas = useMemo(() => {
+    const byId = new Map<string, BranchArea>();
+    branches.forEach((branch) => {
+      (branch.customAreas ?? []).forEach((area) => byId.set(area.id, area));
+    });
+    return [...byId.values()].map((area) => ({
+      id: area.id,
+      nameKey: area.name,
+      tasks: tasks.filter((task) => task.areaId === area.id),
+    }));
+  }, [branches, tasks]);
+  const visibleAreas = useMemo(() => [...areas.filter((area) => isVisibleGroupId(area.id)), ...customAreas], [areas, customAreas]);
+  const taskManagerAreas = useMemo(() => [...areas.filter((area) => isTaskManagerGroupId(area.id)), ...customAreas], [areas, customAreas]);
   const selectedBranch = branches.find((branch) => branch.id === selectedBranchId) ?? branches[0];
   const availableBranches = useMemo(() => {
     if (!currentUser) return branches;
@@ -157,9 +206,9 @@ function App() {
     if (currentUser.role === "admin") return branchAreas;
     const assignedBranchIds = new Set(currentUser.assignedBranchIds ?? []);
     if (!assignedBranchIds.has(selectedBranchId)) return [];
-    const assignedSectorIds = new Set<string>(normalizeGroupAssignments(currentUser.assignedSectorIds));
+    const assignedSectorIds = new Set<string>(normalizeUserSectorIds(currentUser.assignedSectorIds, branches));
     return branchAreas.filter((area) => assignedSectorIds.has(area.id));
-  }, [currentUser, selectedBranch, selectedBranchId, visibleAreas]);
+  }, [branches, currentUser, selectedBranch, selectedBranchId, visibleAreas]);
   const fallbackBranchId = branches[0]?.id ?? defaultBranches[0].id;
   const selectedBranchRecords = useMemo(
     () => records.filter((record) => (record.branchId ?? fallbackBranchId) === selectedBranchId),
@@ -255,7 +304,7 @@ function App() {
       assignedBranchIds: (Array.isArray(user.assignedBranchIds) ? user.assignedBranchIds : user.role === "admin" ? branches.map((branch) => branch.id) : [fallbackBranchId]).filter((branchId) =>
         branchIds.has(branchId),
       ),
-      assignedSectorIds: normalizeGroupAssignments(user.assignedSectorIds),
+      assignedSectorIds: normalizeUserSectorIds(user.assignedSectorIds, branches),
     }));
     const changedUsers = normalizedUsers.filter((nextUser) => {
       const previousUser = users.find((user) => user.id === nextUser.id);
@@ -275,11 +324,26 @@ function App() {
 
   const updateBranches = (nextBranches: Branch[]) => {
     const normalizedBranches = nextBranches.map(normalizeBranch).filter((branch) => branch.name.trim());
+    const branchIds = new Set(normalizedBranches.map((branch) => branch.id));
+    const normalizedUsers = users.map((user) => {
+      const fallbackAssignedBranchIds = user.role === "admin" ? normalizedBranches.map((branch) => branch.id) : [];
+      const assignedBranchIds = (Array.isArray(user.assignedBranchIds) ? user.assignedBranchIds : fallbackAssignedBranchIds).filter((branchId) => branchIds.has(branchId));
+      return {
+        ...user,
+        assignedBranchIds: assignedBranchIds.length || user.role !== "admin" ? assignedBranchIds : normalizedBranches.map((branch) => branch.id),
+        assignedSectorIds: normalizeUserSectorIds(user.assignedSectorIds, normalizedBranches),
+      };
+    });
     setBranches(normalizedBranches);
+    setUsers(normalizedUsers);
     localStorage.setItem(branchesStorageKey, JSON.stringify(normalizedBranches));
+    localStorage.setItem(usersStorageKey, JSON.stringify(normalizedUsers));
     void api.saveBranches(normalizedBranches).catch(() => undefined);
     if (!normalizedBranches.some((branch) => branch.id === selectedBranchId)) {
       setSelectedBranchId(normalizedBranches[0]?.id ?? defaultBranches[0].id);
+    }
+    if (currentUser) {
+      setCurrentUser(normalizedUsers.find((user) => user.id === currentUser.id) ?? currentUser);
     }
   };
 
@@ -388,7 +452,7 @@ function App() {
             <Home
               employees={users}
               branches={availableBranches}
-              areas={availableAreas.filter((area) => isOperationalGroupId(area.id))}
+              areas={availableAreas.filter((area) => area.id !== "management")}
               selectedEmployeeId={currentUser?.id ?? selectedEmployeeId}
               selectedBranchId={selectedBranchId}
               selectedAreaId={selectedAreaId}

@@ -9,7 +9,9 @@ import {
   MapPin,
   Menu,
   Moon,
+  Pencil,
   Plus,
+  Save,
   Search,
   ShieldCheck,
   Sun,
@@ -18,6 +20,7 @@ import {
   UserPlus,
   Users,
   UtensilsCrossed,
+  X,
 } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import type { AppUser, Area, Branch, CleaningRecord, CleaningTask, Language, UserRole } from "../types";
@@ -214,6 +217,9 @@ export function AdminDashboard({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [branchScope, setBranchScope] = useState<BranchScope>("all");
   const [newBranchName, setNewBranchName] = useState("");
+  const [newAreaName, setNewAreaName] = useState("");
+  const [editingAreaId, setEditingAreaId] = useState<string | null>(null);
+  const [editingAreaName, setEditingAreaName] = useState("");
   const [userSearch, setUserSearch] = useState("");
   const [branchFilter, setBranchFilter] = useState(selectedBranchId);
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
@@ -224,6 +230,15 @@ export function AdminDashboard({
   const operationalAreas = areas.filter((area) => area.id !== "management");
   const managementArea = areas.find((area) => area.id === "management");
   const selectedBranchAreaIds = new Set(selectedBranch?.areaIds ?? []);
+  const globalCustomAreaIds = new Set(branches.flatMap((branch) => (branch.customAreas ?? []).map((area) => area.id)));
+  const standardOperationalAreas = operationalAreas.filter((area) => !globalCustomAreaIds.has(area.id));
+  const selectedCustomAreaIds = new Set((selectedBranch?.customAreas ?? []).map((area) => area.id));
+  const selectedCustomAreas = (selectedBranch?.customAreas ?? []).map((area) => ({
+    id: area.id,
+    nameKey: area.name,
+    tasks: tasks.filter((task) => task.areaId === area.id),
+  }));
+  const branchManageAreas = [...standardOperationalAreas, ...selectedCustomAreas];
   const scopedBranches = branchScope === "all" ? branches : branches.filter((branch) => branch.id === branchScope);
   const scopedBranchIds = new Set(scopedBranches.map((branch) => branch.id));
   const selectedBranchAreas = operationalAreas.filter((area) => selectedBranchAreaIds.has(area.id));
@@ -313,7 +328,7 @@ export function AdminDashboard({
     const nextBranch: Branch = {
       id,
       name,
-      areaIds: operationalAreas.map((area) => area.id),
+      areaIds: standardOperationalAreas.map((area) => area.id),
     };
     onBranchesChange([...branches, nextBranch]);
     onBranchChange(id);
@@ -323,9 +338,30 @@ export function AdminDashboard({
 
   const deleteSelectedBranch = () => {
     if (!selectedBranch || branches.length <= 1) return;
+    const removedCustomAreaIds = new Set((selectedBranch.customAreas ?? []).map((area) => area.id));
     const nextBranches = branches.filter((branch) => branch.id !== selectedBranch.id);
+    const remainingCustomAreaIds = new Set(nextBranches.flatMap((branch) => (branch.customAreas ?? []).map((area) => area.id)));
+    const orphanedCustomAreaIds = [...removedCustomAreaIds].filter((areaId) => !remainingCustomAreaIds.has(areaId));
     onBranchesChange(nextBranches);
+    if (orphanedCustomAreaIds.length) {
+      onTasksChange(tasks.filter((task) => !orphanedCustomAreaIds.includes(task.areaId)));
+    }
     onBranchChange(nextBranches[0]?.id ?? "");
+    if (branchScope === selectedBranch.id) {
+      setBranchScope(nextBranches[0]?.id ?? "all");
+      setBranchFilter(nextBranches[0]?.id ?? "all");
+    }
+  };
+
+  const resetAreaEditor = () => {
+    setNewAreaName("");
+    setEditingAreaId(null);
+    setEditingAreaName("");
+  };
+
+  const selectBranchForEditing = (branchId: string) => {
+    resetAreaEditor();
+    onBranchChange(branchId);
   };
 
   const toggleBranchArea = (areaId: string) => {
@@ -337,6 +373,82 @@ export function AdminDashboard({
       areaIds.add(areaId);
     }
     onBranchesChange(branches.map((branch) => (branch.id === selectedBranch.id ? { ...branch, areaIds: [...areaIds] } : branch)));
+  };
+
+  const addCustomArea = () => {
+    const name = newAreaName.trim();
+    if (!selectedBranch || !name) return;
+    const id = `custom-${selectedBranch.id}-${slugify(name) || "area"}-${Date.now().toString(36)}`;
+    const nextArea = { id, name };
+    onBranchesChange(
+      branches.map((branch) =>
+        branch.id === selectedBranch.id
+          ? {
+              ...branch,
+              customAreas: [...(branch.customAreas ?? []), nextArea],
+              areaIds: [...new Set([...branch.areaIds, id])],
+            }
+          : branch,
+      ),
+    );
+    setNewAreaName("");
+  };
+
+  const startEditArea = (areaId: string, areaName: string) => {
+    if (!selectedCustomAreaIds.has(areaId)) return;
+    setEditingAreaId(areaId);
+    setEditingAreaName(areaName);
+  };
+
+  const saveAreaEdit = () => {
+    const name = editingAreaName.trim();
+    if (!selectedBranch || !editingAreaId || !name) return;
+    onBranchesChange(
+      branches.map((branch) =>
+        branch.id === selectedBranch.id
+          ? {
+              ...branch,
+              customAreas: (branch.customAreas ?? []).map((area) => (area.id === editingAreaId ? { ...area, name } : area)),
+            }
+          : branch,
+      ),
+    );
+    setEditingAreaId(null);
+    setEditingAreaName("");
+  };
+
+  const deleteBranchArea = (areaId: string) => {
+    if (!selectedBranch) return;
+    if (!selectedCustomAreaIds.has(areaId)) {
+      onBranchesChange(
+        branches.map((branch) =>
+          branch.id === selectedBranch.id
+            ? {
+                ...branch,
+                areaIds: branch.areaIds.filter((currentAreaId) => currentAreaId !== areaId),
+              }
+            : branch,
+        ),
+      );
+      return;
+    }
+
+    onBranchesChange(
+      branches.map((branch) =>
+        branch.id === selectedBranch.id
+          ? {
+              ...branch,
+              customAreas: (branch.customAreas ?? []).filter((area) => area.id !== areaId),
+              areaIds: branch.areaIds.filter((currentAreaId) => currentAreaId !== areaId),
+            }
+          : branch,
+      ),
+    );
+    onTasksChange(tasks.filter((task) => task.areaId !== areaId));
+    if (editingAreaId === areaId) {
+      setEditingAreaId(null);
+      setEditingAreaName("");
+    }
   };
 
   const changeUserRole = (userId: string, role: UserRole) => {
@@ -434,6 +546,10 @@ export function AdminDashboard({
         </nav>
 
         <div className="admin-sidebar-footer">
+          <button className="admin-sidebar-logout" type="button" onClick={onLogout}>
+            <LogOut size={17} />
+            {t("auth.logout")}
+          </button>
           <button type="button">
             <HelpCircle size={17} />
             {t("admin.menu.help")}
@@ -478,9 +594,6 @@ export function AdminDashboard({
                 <small>{t(`roles.${currentUser.role}`)}</small>
               </div>
             </div>
-            <button className="admin-icon-button" type="button" onClick={onLogout} aria-label={t("auth.logout")}>
-              <LogOut size={18} />
-            </button>
           </div>
         </header>
 
@@ -499,14 +612,28 @@ export function AdminDashboard({
             branchSummaries={branchSummaries}
             selectedBranchId={selectedBranch?.id ?? ""}
             selectedBranch={selectedBranch}
-            areas={operationalAreas}
+            areas={branchManageAreas}
             selectedAreaIds={selectedBranchAreaIds}
+            customAreaIds={selectedCustomAreaIds}
             newBranchName={newBranchName}
+            newAreaName={newAreaName}
+            editingAreaId={editingAreaId}
+            editingAreaName={editingAreaName}
             onNewBranchNameChange={setNewBranchName}
+            onNewAreaNameChange={setNewAreaName}
+            onEditingAreaNameChange={setEditingAreaName}
             onAddBranch={addBranch}
             onDeleteBranch={deleteSelectedBranch}
-            onBranchChange={onBranchChange}
+            onBranchChange={selectBranchForEditing}
             onToggleArea={toggleBranchArea}
+            onAddArea={addCustomArea}
+            onStartEditArea={startEditArea}
+            onSaveAreaEdit={saveAreaEdit}
+            onCancelAreaEdit={() => {
+              setEditingAreaId(null);
+              setEditingAreaName("");
+            }}
+            onDeleteArea={deleteBranchArea}
           />
         ) : null}
 
@@ -834,24 +961,46 @@ function BranchesSection({
   selectedBranch,
   areas,
   selectedAreaIds,
+  customAreaIds,
   newBranchName,
+  newAreaName,
+  editingAreaId,
+  editingAreaName,
   onNewBranchNameChange,
+  onNewAreaNameChange,
+  onEditingAreaNameChange,
   onAddBranch,
   onDeleteBranch,
   onBranchChange,
   onToggleArea,
+  onAddArea,
+  onStartEditArea,
+  onSaveAreaEdit,
+  onCancelAreaEdit,
+  onDeleteArea,
 }: {
   branchSummaries: BranchSummary[];
   selectedBranchId: string;
   selectedBranch?: Branch;
   areas: Area[];
   selectedAreaIds: Set<string>;
+  customAreaIds: Set<string>;
   newBranchName: string;
+  newAreaName: string;
+  editingAreaId: string | null;
+  editingAreaName: string;
   onNewBranchNameChange: (value: string) => void;
+  onNewAreaNameChange: (value: string) => void;
+  onEditingAreaNameChange: (value: string) => void;
   onAddBranch: () => void;
   onDeleteBranch: () => void;
   onBranchChange: (branchId: string) => void;
   onToggleArea: (areaId: string) => void;
+  onAddArea: () => void;
+  onStartEditArea: (areaId: string, areaName: string) => void;
+  onSaveAreaEdit: () => void;
+  onCancelAreaEdit: () => void;
+  onDeleteArea: (areaId: string) => void;
 }) {
   const { t } = useI18n();
 
@@ -899,13 +1048,68 @@ function BranchesSection({
           </div>
         </div>
         <p className="admin-card-note">{t("admin.branchAreasHelp")}</p>
-        <div className="branch-area-grid clean-grid">
-          {areas.map((area) => (
-            <label key={area.id}>
-              <input type="checkbox" checked={selectedAreaIds.has(area.id)} onChange={() => onToggleArea(area.id)} />
-              <span>{t(area.nameKey)}</span>
-            </label>
-          ))}
+        <div className="branch-area-tools">
+          <label className="field">
+            <span>{t("admin.newArea")}</span>
+            <input value={newAreaName} onChange={(event) => onNewAreaNameChange(event.target.value)} placeholder={t("admin.newAreaPlaceholder")} />
+          </label>
+          <button className="primary-action compact-action" type="button" onClick={onAddArea}>
+            <Plus size={18} />
+            {t("admin.addArea")}
+          </button>
+        </div>
+
+        <div className="branch-area-list">
+          {areas.map((area) => {
+            const isCustom = customAreaIds.has(area.id);
+            const isActive = selectedAreaIds.has(area.id);
+            const isEditing = editingAreaId === area.id;
+            return (
+              <article className={`branch-area-card ${isActive ? "active" : ""}`} key={area.id}>
+                <label className="branch-area-toggle">
+                  <input type="checkbox" checked={isActive} onChange={() => onToggleArea(area.id)} />
+                  <span>{isActive ? t("admin.areaActive") : t("admin.areaInactive")}</span>
+                </label>
+                <div className="branch-area-card-main">
+                  {isEditing ? (
+                    <input value={editingAreaName} onChange={(event) => onEditingAreaNameChange(event.target.value)} aria-label={t("admin.editAreaName")} />
+                  ) : (
+                    <strong>{t(area.nameKey)}</strong>
+                  )}
+                  <small>{isCustom ? t("admin.customArea") : t("admin.baseArea")}</small>
+                </div>
+                <div className="branch-area-card-actions">
+                  {isCustom ? (
+                    isEditing ? (
+                      <>
+                        <button className="icon-action" type="button" onClick={onSaveAreaEdit} aria-label={t("actions.save")}>
+                          <Save size={17} />
+                        </button>
+                        <button className="icon-action" type="button" onClick={onCancelAreaEdit} aria-label={t("actions.cancel")}>
+                          <X size={17} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="icon-action" type="button" onClick={() => onStartEditArea(area.id, t(area.nameKey))} aria-label={t("actions.edit")}>
+                          <Pencil size={17} />
+                        </button>
+                        <button className="icon-action danger-icon" type="button" onClick={() => onDeleteArea(area.id)} aria-label={t("admin.deleteArea")}>
+                          <Trash2 size={17} />
+                        </button>
+                      </>
+                    )
+                  ) : (
+                    <button className="admin-link-button danger-link" type="button" onClick={() => onDeleteArea(area.id)} disabled={!isActive}>
+                      <Trash2 size={16} />
+                      {t("admin.removeAreaFromBranch")}
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+          {!areas.length ? <p className="empty-state">{t("admin.noBranchAreas")}</p> : null}
         </div>
       </article>
     </div>

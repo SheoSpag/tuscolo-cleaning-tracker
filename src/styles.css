@@ -1541,9 +1541,15 @@ input:focus {
 }
 
 .danger-action {
-  color: var(--color-danger);
-  background: #fff5f4;
+  color: #8f2f2f;
+  background: #fff7f6;
   border-color: rgba(169, 63, 63, 0.28);
+}
+
+.danger-action:hover {
+  color: #fff;
+  background: var(--color-danger);
+  border-color: var(--color-danger);
 }
 
 .danger-action:disabled {
@@ -1574,6 +1580,86 @@ input:focus {
   border: 1px solid var(--color-line);
   border-radius: 8px;
   font-weight: 800;
+}
+
+.branch-area-tools {
+  display: grid;
+  gap: 12px;
+  align-items: end;
+}
+
+.branch-area-list {
+  display: grid;
+  gap: 10px;
+}
+
+.branch-area-card {
+  display: grid;
+  grid-template-columns: minmax(118px, auto) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  background: #fbfcf7;
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+}
+
+.branch-area-card.active {
+  border-color: rgba(107, 116, 77, 0.38);
+  box-shadow: inset 4px 0 0 var(--color-secondary);
+}
+
+.branch-area-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 10px;
+  color: var(--color-secondary-dark);
+  background: var(--color-soft);
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.branch-area-card-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.branch-area-card-main strong,
+.branch-area-card-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-area-card-main strong {
+  color: #20231b;
+}
+
+.branch-area-card-main small {
+  color: var(--color-muted);
+  font-weight: 850;
+}
+
+.branch-area-card-main input {
+  min-height: 42px;
+}
+
+.branch-area-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.danger-link {
+  color: #8f2f2f;
+  background: #fff7f6;
+  border-color: rgba(169, 63, 63, 0.26);
 }
 
 .user-management {
@@ -1841,6 +1927,16 @@ input:focus {
   color: rgba(255, 255, 255, 0.5);
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.admin-sidebar-footer .admin-sidebar-logout {
+  color: #fff;
+  background: rgba(169, 63, 63, 0.22);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.admin-sidebar-footer .admin-sidebar-logout:hover {
+  background: rgba(169, 63, 63, 0.34);
 }
 
 .admin-sidebar-scrim {
@@ -2517,6 +2613,13 @@ input:focus {
 .app-theme-dark .admin-card,
 .app-theme-dark .admin-kpi-card,
 .app-theme-dark .role-user-card,
+.app-theme-dark .branch-area-card,
+.app-theme-dark .branch-area-toggle,
+.app-theme-dark .task-area-panel,
+.app-theme-dark .task-editor-card,
+.app-theme-dark .task-metrics-grid article,
+.app-theme-dark .task-card,
+.app-theme-dark .task-area-list button,
 .app-theme-dark .admin-profile,
 .app-theme-dark .admin-header-actions .language-switcher,
 .app-theme-dark .admin-theme-toggle,
@@ -2541,6 +2644,10 @@ input:focus {
 .app-theme-dark .admin-kpi-card strong,
 .app-theme-dark .admin-table td strong,
 .app-theme-dark .role-user-card-header strong,
+.app-theme-dark .branch-area-card-main strong,
+.app-theme-dark .task-metrics-grid strong,
+.app-theme-dark .task-list-header h3,
+.app-theme-dark .task-card-main p,
 .app-theme-dark .settings-list strong,
 .app-theme-dark .admin-donut span,
 .app-theme-dark .admin-bar-row span,
@@ -2556,6 +2663,8 @@ input:focus {
 .app-theme-dark .admin-table th,
 .app-theme-dark .role-card-section > span,
 .app-theme-dark .role-user-card-header span,
+.app-theme-dark .branch-area-card-main small,
+.app-theme-dark .task-area-list small,
 .app-theme-dark .activity-item small,
 .app-theme-dark .admin-card-note {
   color: #bbc2aa;
@@ -2576,6 +2685,8 @@ input:focus {
 
 .app-theme-dark .bar-track,
 .app-theme-dark .admin-kpi-card > div,
+.app-theme-dark .task-area-panel-header strong,
+.app-theme-dark .task-list-header > span,
 .app-theme-dark .role-toggle,
 .app-theme-dark .segmented-control {
   background: #151c12;
@@ -2594,7 +2705,7 @@ input:focus {
 
 .task-manager {
   display: grid;
-  gap: 16px;
+  gap: 18px;
   margin-top: 18px;
 }
 
@@ -2603,28 +2714,175 @@ input:focus {
   font-size: clamp(1.25rem, 4vw, 1.8rem);
 }
 
-.task-manager-controls,
-.new-task-row {
+.task-manager-shell {
   display: grid;
+  gap: 16px;
+}
+
+.task-area-panel,
+.task-editor-card,
+.task-metrics-grid article,
+.task-card {
+  background: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+}
+
+.task-area-panel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 14px;
+}
+
+.task-area-panel-header,
+.task-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
 }
 
-.task-list {
+.task-area-panel-header span,
+.task-list-header p,
+.task-metrics-grid span {
+  margin: 0;
+  color: var(--color-secondary);
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.task-area-panel-header strong,
+.task-list-header > span {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 9px;
+  color: var(--color-secondary-dark);
+  background: var(--color-soft);
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  font-weight: 900;
+}
+
+.task-area-list {
+  display: grid;
+  gap: 8px;
+  max-height: 680px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.task-area-list button {
+  display: grid;
+  gap: 4px;
+  min-height: 58px;
+  padding: 10px 12px;
+  color: #303428;
+  background: #fbfcf7;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  text-align: left;
+}
+
+.task-area-list button.active {
+  color: var(--color-secondary-dark);
+  background: #eef2e4;
+  border-color: rgba(107, 116, 77, 0.38);
+  box-shadow: inset 4px 0 0 var(--color-secondary);
+}
+
+.task-area-list span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 900;
+}
+
+.task-area-list small {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.task-workspace {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.task-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.task-metrics-grid article {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.task-metrics-grid svg {
+  color: var(--color-secondary);
+}
+
+.task-metrics-grid strong {
+  color: #20231b;
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.task-editor-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.task-list-header h3 {
+  margin: 3px 0 0;
+  color: #20231b;
+  font-size: 1.16rem;
+}
+
+.task-editor-card .new-task-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 180px) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.task-card-list {
   display: grid;
   gap: 10px;
 }
 
-.task-row {
+.task-card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   padding: 14px;
-  border: 1px solid var(--color-line);
-  border-radius: 8px;
-  background: #fff;
+  align-items: center;
 }
 
-.task-row p {
-  margin: 8px 0 0;
+.task-card-main {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.task-card-main p {
+  margin: 0;
+  color: #303428;
+  line-height: 1.45;
+}
+
+.task-card-main .field {
+  width: 100%;
 }
 
 .task-actions {
@@ -2960,6 +3218,15 @@ a {
   .task-row {
     grid-template-columns: 1fr auto;
     align-items: start;
+  }
+
+  .task-manager-shell {
+    grid-template-columns: minmax(220px, 0.34fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .branch-area-tools {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .confirm-actions {
@@ -3651,6 +3918,29 @@ table.admin-table {
 
   .admin-card-header {
     display: grid;
+  }
+
+  .branch-area-card {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .branch-area-card-actions {
+    justify-content: stretch;
+  }
+
+  .branch-area-card-actions .admin-link-button,
+  .branch-area-card-actions .icon-action {
+    flex: 1;
+  }
+
+  .task-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .task-editor-card .new-task-row,
+  .task-card {
+    grid-template-columns: 1fr;
   }
 }
 
