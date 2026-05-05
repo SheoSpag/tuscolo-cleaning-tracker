@@ -811,7 +811,7 @@ input:focus {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: 90;
   display: grid;
   place-items: center;
   padding: 18px;
@@ -1781,6 +1781,32 @@ input:focus {
   min-width: 0;
 }
 
+.admin-branch-scope {
+  display: grid;
+  gap: 5px;
+  min-width: min(280px, 36vw);
+}
+
+.admin-branch-scope span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-secondary-dark);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.admin-branch-scope select {
+  min-height: 42px;
+  padding: 9px 38px 9px 12px;
+  color: #1f2a18;
+  background-color: white;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  box-shadow: 0 10px 26px rgba(31, 42, 24, 0.06);
+  font-weight: 900;
+}
+
 .admin-header-actions .language-switcher {
   grid-column: auto;
   justify-self: auto;
@@ -1875,6 +1901,16 @@ input:focus {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
+}
+
+.admin-card-note {
+  margin: -4px 0 0;
+  padding: 12px;
+  color: var(--color-secondary-dark);
+  background: #f7f8f2;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  font-weight: 750;
 }
 
 .admin-kpi-grid {
@@ -2121,19 +2157,21 @@ input:focus {
   border-radius: 12px;
 }
 
-.activity-item span {
-  width: 9px;
-  height: 9px;
-  margin-top: 6px;
+.activity-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
   background: var(--color-secondary);
-  border-radius: 999px;
+  color: white;
+  border-radius: 10px;
 }
 
-.activity-item.warning span {
+.activity-item.warning .activity-icon {
   background: #b77a3d;
 }
 
-.activity-item.neutral span {
+.activity-item.neutral .activity-icon {
   background: #8b907d;
 }
 
@@ -2142,6 +2180,13 @@ input:focus {
   color: #303428;
   font-weight: 750;
   line-height: 1.4;
+}
+
+.activity-item small {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-weight: 800;
 }
 
 .admin-form-grid,
@@ -2833,7 +2878,8 @@ a {
 
   .modal-backdrop {
     padding: 8px;
-    align-items: end;
+    align-items: center;
+    justify-items: center;
   }
 
   .confirm-no-photo {
@@ -3195,6 +3241,10 @@ table.admin-table {
     justify-content: space-between;
   }
 
+  .admin-branch-scope {
+    min-width: min(100%, 320px);
+  }
+
   .admin-profile strong {
     max-width: 220px;
   }
@@ -3217,6 +3267,11 @@ table.admin-table {
   .admin-header-actions {
     display: grid;
     grid-template-columns: 1fr auto;
+  }
+
+  .admin-branch-scope {
+    grid-column: 1 / -1;
+    width: 100%;
   }
 
   .admin-header-actions .language-switcher {

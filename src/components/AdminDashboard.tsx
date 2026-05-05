@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   ListChecks,
   LogOut,
+  MapPin,
   Menu,
   Plus,
   Search,
@@ -31,6 +32,7 @@ import { RecordsView } from "./RecordsView";
 import { TaskManager } from "./TaskManager";
 
 type AdminSection = "summary" | "branches" | "areas" | "tasks" | "records" | "employees" | "users" | "reports" | "settings";
+type BranchScope = "all" | string;
 type RoleFilter = "all" | UserRole;
 type WeeklyTaskKey = `${string}:${string}`;
 
@@ -72,6 +74,7 @@ type FailureRow = {
 type ActivityItem = {
   id: string;
   text: string;
+  time: string;
   tone: "success" | "warning" | "neutral";
 };
 
@@ -187,6 +190,7 @@ export function AdminDashboard({
   const { language, t } = useI18n();
   const [activeSection, setActiveSection] = useState<AdminSection>("summary");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [branchScope, setBranchScope] = useState<BranchScope>("all");
   const [newBranchName, setNewBranchName] = useState("");
   const [userSearch, setUserSearch] = useState("");
   const [branchFilter, setBranchFilter] = useState(selectedBranchId);
@@ -198,9 +202,13 @@ export function AdminDashboard({
   const operationalAreas = areas.filter((area) => area.id !== "management");
   const managementArea = areas.find((area) => area.id === "management");
   const selectedBranchAreaIds = new Set(selectedBranch?.areaIds ?? []);
+  const scopedBranches = branchScope === "all" ? branches : branches.filter((branch) => branch.id === branchScope);
+  const scopedBranchIds = new Set(scopedBranches.map((branch) => branch.id));
   const selectedBranchAreas = operationalAreas.filter((area) => selectedBranchAreaIds.has(area.id));
   const assignableAreas = managementArea ? [...selectedBranchAreas, managementArea] : selectedBranchAreas;
   const weekRecords = useMemo(() => records.filter((record) => isCurrentWeek(record.createdAt)), [records]);
+  const scopedWeekRecords = weekRecords.filter((record) => scopedBranchIds.has(recordBranchId(record)));
+  const scopedRecords = branchScope === "all" ? records : records.filter((record) => scopedBranchIds.has(recordBranchId(record)));
 
   const branchSummaries = branches.map<BranchSummary>((branch) => {
     const branchAreaIds = new Set(branch.areaIds);
@@ -224,7 +232,22 @@ export function AdminDashboard({
     };
   });
 
-  const selectedSummary = branchSummaries.find((item) => item.branch.id === selectedBranch?.id) ?? branchSummaries[0] ?? {
+  const selectedSummary = branchScope === "all" ? {
+    branch: {
+      id: "all",
+      name: t("admin.allBranches"),
+      areaIds: operationalAreas.map((area) => area.id),
+    },
+    rate: branchSummaries.reduce((sum, item) => sum + item.total, 0)
+      ? Math.round((branchSummaries.reduce((sum, item) => sum + item.done, 0) / branchSummaries.reduce((sum, item) => sum + item.total, 0)) * 100)
+      : 0,
+    done: branchSummaries.reduce((sum, item) => sum + item.done, 0),
+    total: branchSummaries.reduce((sum, item) => sum + item.total, 0),
+    pending: branchSummaries.reduce((sum, item) => sum + item.pending, 0),
+    notDone: branchSummaries.reduce((sum, item) => sum + item.notDone, 0),
+    photos: branchSummaries.reduce((sum, item) => sum + item.photos, 0),
+    employees: users.length,
+  } : branchSummaries.find((item) => item.branch.id === branchScope) ?? branchSummaries[0] ?? {
     branch: selectedBranch,
     rate: 0,
     done: 0,
@@ -234,13 +257,16 @@ export function AdminDashboard({
     photos: 0,
     employees: 0,
   };
-  const selectedWeekRecords = weekRecords.filter((record) => recordBranchId(record) === selectedBranch?.id);
-  const selectedWeeklyRecords = selectedWeekRecords.filter((record) => record.recordType === "weekly");
-  const areaStats = selectedBranchAreas.map((area) => {
+  const scopedWeeklyRecords = scopedWeekRecords.filter((record) => record.recordType === "weekly");
+  const areaStats = operationalAreas.map((area) => {
     const areaWeeklyTasks = area.tasks.filter((task) => task.frequency === "weekly");
-    const doneKeys = weeklyDoneKeys(selectedWeeklyRecords);
-    const done = areaWeeklyTasks.filter((task) => doneKeys.has(weeklyTaskKey(area.id, task.id))).length;
-    const total = areaWeeklyTasks.length;
+    const total = scopedBranches.reduce((sum, branch) => sum + (branch.areaIds.includes(area.id) ? areaWeeklyTasks.length : 0), 0);
+    const done = scopedBranches.reduce((sum, branch) => {
+      if (!branch.areaIds.includes(area.id)) return sum;
+      const branchAreaRecords = scopedWeeklyRecords.filter((record) => recordBranchId(record) === branch.id && record.areaId === area.id);
+      const doneKeys = weeklyDoneKeys(branchAreaRecords);
+      return sum + areaWeeklyTasks.filter((task) => doneKeys.has(weeklyTaskKey(area.id, task.id))).length;
+    }, 0);
 
     return {
       area,
@@ -248,15 +274,15 @@ export function AdminDashboard({
       total,
       rate: total ? Math.round((done / total) * 100) : 0,
     };
-  });
+  }).filter((item) => item.total > 0 || branchScope !== "all" && selectedBranchAreaIds.has(item.area.id));
   const trend = lastSevenDays().map((date, index) => {
-    const dayRecords = records.filter((record) => sameDay(new Date(record.createdAt), date));
+    const dayRecords = scopedRecords.filter((record) => sameDay(new Date(record.createdAt), date));
     if (!dayRecords.length) return fallbackTrend[index];
     const completed = dayRecords.filter((record) => record.status === "completed").length;
     return Math.round((completed / dayRecords.length) * 100);
   });
-  const failureRows = buildFailureRows(records, areas, language, t);
-  const activity = buildActivity(selectedWeeklyRecords, users, areas, t);
+  const failureRows = buildFailureRows(scopedRecords, areas, language, t);
+  const activity = buildActivity(scopedWeeklyRecords, users, areas, language, t);
 
   const addBranch = () => {
     const name = newBranchName.trim();
@@ -345,10 +371,19 @@ export function AdminDashboard({
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
     return matchesSearch && matchesBranch && matchesRole;
   });
+  const scopedBranch = branchScope === "all" ? undefined : branches.find((branch) => branch.id === branchScope) ?? selectedBranch;
 
   const openSection = (section: AdminSection) => {
     setActiveSection(section);
     setSidebarOpen(false);
+  };
+
+  const handleBranchScopeChange = (value: BranchScope) => {
+    setBranchScope(value);
+    setBranchFilter(value);
+    if (value !== "all") {
+      onBranchChange(value);
+    }
   };
 
   return (
@@ -398,6 +433,17 @@ export function AdminDashboard({
             <span>{t("admin.welcome")}, {currentUser.name}</span>
           </div>
           <div className="admin-header-actions">
+            <label className="admin-branch-scope">
+              <span><MapPin size={16} />{t("fields.branch")}</span>
+              <select value={branchScope} onChange={(event) => handleBranchScopeChange(event.target.value)}>
+                <option value="all">{t("admin.allBranches")}</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <LanguageSelector />
             <div className="admin-profile">
               <span>{currentUser.name.slice(0, 1).toUpperCase()}</span>
@@ -420,7 +466,8 @@ export function AdminDashboard({
             trend={trend}
             failureRows={failureRows.length ? failureRows : fallbackFailures}
             activity={activity}
-            onBranchChange={onBranchChange}
+            isAllBranches={branchScope === "all"}
+            onBranchChange={handleBranchScopeChange}
             onOpenBranches={() => openSection("branches")}
           />
         ) : null}
@@ -439,7 +486,8 @@ export function AdminDashboard({
 
         {activeSection === "areas" ? (
           <AreasSection
-            branch={selectedBranch}
+            branch={scopedBranch}
+            isAllBranches={branchScope === "all"}
             areas={operationalAreas}
             areaStats={areaStats}
             selectedAreaIds={selectedBranchAreaIds}
@@ -450,7 +498,7 @@ export function AdminDashboard({
         {activeSection === "tasks" ? <TaskManager areas={taskManagerAreas} tasks={tasks} onTasksChange={onTasksChange} /> : null}
 
         {activeSection === "records" ? (
-          <RecordsView records={records} areas={recordsAreas} employees={users} branches={branches} selectedBranchId={selectedBranch?.id} onBranchChange={onBranchChange} />
+          <RecordsView records={records} areas={recordsAreas} employees={users} branches={branches} selectedBranchId={branchScope === "all" ? undefined : scopedBranch?.id} onBranchChange={handleBranchScopeChange} />
         ) : null}
 
         {activeSection === "employees" || activeSection === "users" ? (
@@ -458,8 +506,8 @@ export function AdminDashboard({
             users={filteredUsers}
             allUsers={users}
             branches={branches}
-            selectedBranch={selectedBranch}
-            assignableAreas={assignableAreas}
+            selectedBranch={scopedBranch}
+            assignableAreas={branchScope === "all" ? [] : assignableAreas}
             currentUser={currentUser}
             search={userSearch}
             branchFilter={branchFilter}
@@ -474,8 +522,8 @@ export function AdminDashboard({
           />
         ) : null}
 
-        {activeSection === "reports" ? <ReportsSection selectedBranch={selectedBranch} selectedSummary={selectedSummary} /> : null}
-        {activeSection === "settings" ? <SettingsSection selectedBranch={selectedBranch} currentUser={currentUser} /> : null}
+        {activeSection === "reports" ? <ReportsSection selectedBranch={scopedBranch} selectedSummary={selectedSummary} /> : null}
+        {activeSection === "settings" ? <SettingsSection selectedBranch={scopedBranch} currentUser={currentUser} /> : null}
       </section>
     </div>
   );
@@ -488,6 +536,7 @@ function DashboardSummary({
   trend,
   failureRows,
   activity,
+  isAllBranches,
   onBranchChange,
   onOpenBranches,
 }: {
@@ -497,6 +546,7 @@ function DashboardSummary({
   trend: number[];
   failureRows: FailureRow[];
   activity: ActivityItem[];
+  isAllBranches: boolean;
   onBranchChange: (branchId: string) => void;
   onOpenBranches: () => void;
 }) {
@@ -512,7 +562,7 @@ function DashboardSummary({
         <KpiCard icon={Users} label={t("admin.kpi.branchEmployees")} value={String(selectedSummary.employees)} detail={t("admin.branchEmployees")} />
       </div>
 
-      <BranchSummaryTable branchSummaries={branchSummaries} onBranchChange={onBranchChange} onOpenBranches={onOpenBranches} />
+      <BranchSummaryTable branchSummaries={branchSummaries} onBranchChange={onBranchChange} onOpenBranches={onOpenBranches} showHint={isAllBranches} />
 
       <div className="admin-analytics-grid">
         <StatusDonut done={selectedSummary.done} pending={selectedSummary.pending} notDone={selectedSummary.notDone} />
@@ -546,10 +596,12 @@ function BranchSummaryTable({
   branchSummaries,
   onBranchChange,
   onOpenBranches,
+  showHint = false,
 }: {
   branchSummaries: BranchSummary[];
   onBranchChange: (branchId: string) => void;
   onOpenBranches?: () => void;
+  showHint?: boolean;
 }) {
   const { t } = useI18n();
 
@@ -567,6 +619,7 @@ function BranchSummaryTable({
           </button>
         ) : null}
       </div>
+      {showHint ? <p className="admin-card-note">{t("admin.allBranchesHint")}</p> : null}
 
       <div className="admin-table-wrap">
         <table className="admin-table">
@@ -768,8 +821,13 @@ function RecentActivity({ items }: { items: ActivityItem[] }) {
       <div className="activity-list">
         {items.map((item) => (
           <div className={`activity-item ${item.tone}`} key={item.id}>
-            <span />
-            <p>{item.text}</p>
+            <span className="activity-icon">
+              <ClipboardList size={16} />
+            </span>
+            <div>
+              <p>{item.text}</p>
+              <small>{item.time}</small>
+            </div>
           </div>
         ))}
       </div>
@@ -837,12 +895,14 @@ function BranchesSection({
 
 function AreasSection({
   branch,
+  isAllBranches,
   areas,
   areaStats,
   selectedAreaIds,
   onToggleArea,
 }: {
   branch?: Branch;
+  isAllBranches: boolean;
   areas: Area[];
   areaStats: Array<{ area: Area; done: number; total: number; rate: number }>;
   selectedAreaIds: Set<string>;
@@ -856,18 +916,22 @@ function AreasSection({
       <article className="admin-card">
         <div className="admin-card-header">
           <div>
-            <p>{branch?.name ?? t("common.noValue")}</p>
+            <p>{isAllBranches ? t("admin.allBranches") : branch?.name ?? t("common.noValue")}</p>
             <h2>{t("admin.branchAreas")}</h2>
           </div>
         </div>
-        <div className="branch-area-grid clean-grid">
-          {areas.map((area) => (
-            <label key={area.id}>
-              <input type="checkbox" checked={selectedAreaIds.has(area.id)} onChange={() => onToggleArea(area.id)} />
-              <span>{t(area.nameKey)}</span>
-            </label>
-          ))}
-        </div>
+        {isAllBranches ? (
+          <p className="admin-card-note">{t("admin.chooseBranchForAreas")}</p>
+        ) : (
+          <div className="branch-area-grid clean-grid">
+            {areas.map((area) => (
+              <label key={area.id}>
+                <input type="checkbox" checked={selectedAreaIds.has(area.id)} onChange={() => onToggleArea(area.id)} />
+                <span>{t(area.nameKey)}</span>
+              </label>
+            ))}
+          </div>
+        )}
       </article>
     </div>
   );
@@ -1102,13 +1166,13 @@ function buildFailureRows(records: CleaningRecord[], areas: Area[], language: La
   return [...rows.values()].sort((left, right) => right.count - left.count).slice(0, 5);
 }
 
-function buildActivity(records: CleaningRecord[], users: AppUser[], areas: Area[], t: (key: string) => string): ActivityItem[] {
+function buildActivity(records: CleaningRecord[], users: AppUser[], areas: Area[], language: Language, t: (key: string) => string): ActivityItem[] {
   if (!records.length) {
     return [
-      { id: "mock-1", text: "Pasta Küche completó su semanal", tone: "success" },
-      { id: "mock-2", text: "Bar tiene tareas pendientes", tone: "warning" },
-      { id: "mock-3", text: "Nueva foto subida en Pizza", tone: "neutral" },
-      { id: "mock-4", text: "Lavado semanal completado", tone: "success" },
+      { id: "mock-1", text: "Pasta Küche completó su semanal", time: "Hace 2 horas", tone: "success" },
+      { id: "mock-2", text: "Bar tiene tareas pendientes", time: "Hace 4 horas", tone: "warning" },
+      { id: "mock-3", text: "Nueva foto subida en Pizza", time: "Hoy", tone: "neutral" },
+      { id: "mock-4", text: "Lavado semanal completado", time: "Ayer", tone: "success" },
     ];
   }
 
@@ -1120,7 +1184,24 @@ function buildActivity(records: CleaningRecord[], users: AppUser[], areas: Area[
     return {
       id: record.id,
       text: photos ? `${areaName}: ${t("records.photo")} ${photos} - ${user?.name ?? record.employeeId}` : `${areaName}: ${t("weekly.done")} - ${user?.name ?? record.employeeId}`,
+      time: formatActivityTime(record.createdAt, language),
       tone: record.status === "completed" ? "success" : "warning",
     };
   });
+}
+
+function formatActivityTime(createdAt: string, language: Language) {
+  const diffMinutes = Math.max(1, Math.round((Date.now() - new Date(createdAt).getTime()) / 60000));
+  if (diffMinutes < 60) {
+    const value = `${diffMinutes} min`;
+    return language === "de" ? `Vor ${value}` : language === "en" ? `${value} ago` : language === "it" ? `${value} fa` : `Hace ${value}`;
+  }
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) {
+    const value = language === "en" ? `${diffHours}h` : `${diffHours} h`;
+    return language === "de" ? `Vor ${value}` : language === "en" ? `${value} ago` : language === "it" ? `${value} fa` : `Hace ${value}`;
+  }
+  const diffDays = Math.round(diffHours / 24);
+  const value = language === "de" ? `${diffDays} T.` : language === "en" ? `${diffDays}d` : language === "it" ? `${diffDays} g` : `${diffDays} d`;
+  return language === "de" ? `Vor ${value}` : language === "en" ? `${value} ago` : language === "it" ? `${value} fa` : `Hace ${value}`;
 }
