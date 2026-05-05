@@ -51,6 +51,7 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
   const weeklyTasks = weeklyAreas.flatMap((area) => area.tasks.filter((task) => task.frequency === "weekly").map((task) => ({ area, task })));
   const uniqueWeeklyTasks = [...new Map(weeklyTasks.map((item) => [`${item.area.id}:${item.task.id}`, item])).values()];
   const doneCount = uniqueWeeklyTasks.filter((item) => weeklyRecordForTask(records, item.area.id, item.task.id)).length;
+  const pendingCount = Math.max(uniqueWeeklyTasks.length - doneCount, 0);
   const progress = uniqueWeeklyTasks.length ? Math.round((doneCount / uniqueWeeklyTasks.length) * 100) : 0;
   const managementMode = areas.some((area) => area.id === "management");
   const [activeTask, setActiveTask] = useState<WeeklyTaskItem | null>(null);
@@ -214,6 +215,7 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
           <div className="bar-track">
             <div style={{ width: `${progress}%` }} />
           </div>
+          <p>{pendingCount ? `${pendingCount} ${t("weekly.remainingToFull")}` : t("weekly.fullCompleted")}</p>
         </article>
         <article>
           <span>{t("weekly.done")}</span>
@@ -221,7 +223,7 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
         </article>
         <article>
           <span>{t("weekly.pending")}</span>
-          <strong>{Math.max(uniqueWeeklyTasks.length - doneCount, 0)}</strong>
+          <strong>{pendingCount}</strong>
         </article>
       </div>
 

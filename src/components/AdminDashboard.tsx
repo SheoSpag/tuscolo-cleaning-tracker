@@ -1,27 +1,23 @@
 import {
-  BarChart3,
   Building2,
   Camera,
   ClipboardList,
-  Cog,
   HelpCircle,
-  Home,
   LayoutDashboard,
   ListChecks,
   LogOut,
   MapPin,
   Menu,
+  Moon,
   Plus,
   Search,
   ShieldCheck,
-  SlidersHorizontal,
-  TableProperties,
+  Sun,
   Trash2,
   TrendingUp,
   UserPlus,
   Users,
   UtensilsCrossed,
-  X,
 } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import type { AppUser, Area, Branch, CleaningRecord, CleaningTask, Language, UserRole } from "../types";
@@ -31,9 +27,10 @@ import { LanguageSelector } from "./LanguageSelector";
 import { RecordsView } from "./RecordsView";
 import { TaskManager } from "./TaskManager";
 
-type AdminSection = "summary" | "branches" | "areas" | "tasks" | "records" | "employees" | "users" | "reports" | "settings";
+type AdminSection = "summary" | "branches" | "tasks" | "records" | "employees" | "users";
 type BranchScope = "all" | string;
 type RoleFilter = "all" | UserRole;
+type Theme = "light" | "dark";
 type WeeklyTaskKey = `${string}:${string}`;
 
 type AdminDashboardProps = {
@@ -50,6 +47,8 @@ type AdminDashboardProps = {
   onBranchesChange: (branches: Branch[]) => void;
   onTasksChange: (tasks: CleaningTask[]) => void;
   onUsersChange: (users: AppUser[]) => void;
+  theme: Theme;
+  onThemeChange: (theme: Theme) => void;
   onLogout: () => void;
 };
 
@@ -81,13 +80,10 @@ type ActivityItem = {
 const menuItems: Array<{ id: AdminSection; icon: typeof LayoutDashboard; labelKey: string }> = [
   { id: "summary", icon: LayoutDashboard, labelKey: "admin.menu.summary" },
   { id: "branches", icon: Building2, labelKey: "admin.menu.branches" },
-  { id: "areas", icon: TableProperties, labelKey: "admin.menu.areas" },
   { id: "tasks", icon: ListChecks, labelKey: "admin.menu.tasks" },
   { id: "records", icon: ClipboardList, labelKey: "admin.menu.records" },
   { id: "employees", icon: Users, labelKey: "admin.menu.employees" },
   { id: "users", icon: ShieldCheck, labelKey: "admin.menu.usersRoles" },
-  { id: "reports", icon: BarChart3, labelKey: "admin.menu.reports" },
-  { id: "settings", icon: Cog, labelKey: "admin.menu.settings" },
 ];
 
 const fallbackTrend = [62, 68, 64, 72, 79, 76, 84];
@@ -153,11 +149,6 @@ function photoCount(record: CleaningRecord) {
   return taskPhotos || record.photoUrls?.length || (record.photoUrl ? 1 : 0);
 }
 
-function notDoneCount(record: CleaningRecord) {
-  const taskFailures = record.taskResults?.filter((result) => result.status === "not_done").length ?? 0;
-  return taskFailures + (record.failedTaskReasons?.length ?? record.failedTaskIds?.length ?? 0);
-}
-
 function lastSevenDays() {
   return Array.from({ length: 7 }, (_, index) => {
     const date = new Date();
@@ -169,6 +160,35 @@ function lastSevenDays() {
 
 function sameDay(left: Date, right: Date) {
   return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth() && left.getDate() === right.getDate();
+}
+
+function completedWeekRanges(count = 4) {
+  const currentStart = startOfWeek(new Date());
+  return Array.from({ length: count }, (_, index) => {
+    const end = new Date(currentStart);
+    end.setDate(currentStart.getDate() - index * 7);
+    const start = new Date(end);
+    start.setDate(end.getDate() - 7);
+    return { start, end };
+  });
+}
+
+function isRecordInRange(record: CleaningRecord, start: Date, end: Date) {
+  const date = new Date(record.createdAt);
+  return date >= start && date < end;
+}
+
+function missedWeeklyTasksForCompletedWeeks(branch: Branch, branchAreas: Area[], records: CleaningRecord[], recordBranchId: (record: CleaningRecord) => string) {
+  const weeklyTasks = weeklyTasksForAreas(branchAreas);
+  if (!weeklyTasks.length) return 0;
+
+  return completedWeekRanges().reduce((missed, range) => {
+    const branchWeekRecords = records.filter((record) => recordBranchId(record) === branch.id && isRecordInRange(record, range.start, range.end));
+    if (!branchWeekRecords.length) return missed;
+    const doneKeys = weeklyDoneKeys(branchWeekRecords.filter((record) => record.recordType === "weekly"));
+    const done = weeklyTasks.filter(({ area, task }) => doneKeys.has(weeklyTaskKey(area.id, task.id))).length;
+    return missed + Math.max(weeklyTasks.length - done, 0);
+  }, 0);
 }
 
 export function AdminDashboard({
@@ -185,6 +205,8 @@ export function AdminDashboard({
   onBranchesChange,
   onTasksChange,
   onUsersChange,
+  theme,
+  onThemeChange,
   onLogout,
 }: AdminDashboardProps) {
   const { language, t } = useI18n();
@@ -226,7 +248,7 @@ export function AdminDashboard({
       done,
       total,
       pending: Math.max(total - done, 0),
-      notDone: branchWeekRecords.reduce((sum, record) => sum + notDoneCount(record), 0),
+      notDone: missedWeeklyTasksForCompletedWeeks(branch, branchAreas, records, recordBranchId),
       photos: branchWeekRecords.reduce((sum, record) => sum + photoCount(record), 0),
       employees: users.filter((user) => (user.assignedBranchIds ?? []).includes(branch.id)).length,
     };
@@ -445,6 +467,10 @@ export function AdminDashboard({
               </select>
             </label>
             <LanguageSelector />
+            <button className="admin-theme-toggle" type="button" onClick={() => onThemeChange(theme === "dark" ? "light" : "dark")}>
+              {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+              {theme === "dark" ? t("theme.light") : t("theme.dark")}
+            </button>
             <div className="admin-profile">
               <span>{currentUser.name.slice(0, 1).toUpperCase()}</span>
               <div>
@@ -461,14 +487,10 @@ export function AdminDashboard({
         {activeSection === "summary" ? (
           <DashboardSummary
             selectedSummary={selectedSummary}
-            branchSummaries={branchSummaries}
             areaStats={areaStats}
             trend={trend}
             failureRows={failureRows.length ? failureRows : fallbackFailures}
             activity={activity}
-            isAllBranches={branchScope === "all"}
-            onBranchChange={handleBranchScopeChange}
-            onOpenBranches={() => openSection("branches")}
           />
         ) : null}
 
@@ -476,21 +498,14 @@ export function AdminDashboard({
           <BranchesSection
             branchSummaries={branchSummaries}
             selectedBranchId={selectedBranch?.id ?? ""}
+            selectedBranch={selectedBranch}
+            areas={operationalAreas}
+            selectedAreaIds={selectedBranchAreaIds}
             newBranchName={newBranchName}
             onNewBranchNameChange={setNewBranchName}
             onAddBranch={addBranch}
             onDeleteBranch={deleteSelectedBranch}
             onBranchChange={onBranchChange}
-          />
-        ) : null}
-
-        {activeSection === "areas" ? (
-          <AreasSection
-            branch={scopedBranch}
-            isAllBranches={branchScope === "all"}
-            areas={operationalAreas}
-            areaStats={areaStats}
-            selectedAreaIds={selectedBranchAreaIds}
             onToggleArea={toggleBranchArea}
           />
         ) : null}
@@ -521,9 +536,6 @@ export function AdminDashboard({
             onToggleSector={toggleUserSector}
           />
         ) : null}
-
-        {activeSection === "reports" ? <ReportsSection selectedBranch={scopedBranch} selectedSummary={selectedSummary} /> : null}
-        {activeSection === "settings" ? <SettingsSection selectedBranch={scopedBranch} currentUser={currentUser} /> : null}
       </section>
     </div>
   );
@@ -531,24 +543,16 @@ export function AdminDashboard({
 
 function DashboardSummary({
   selectedSummary,
-  branchSummaries,
   areaStats,
   trend,
   failureRows,
   activity,
-  isAllBranches,
-  onBranchChange,
-  onOpenBranches,
 }: {
   selectedSummary: BranchSummary;
-  branchSummaries: BranchSummary[];
   areaStats: Array<{ area: Area; done: number; total: number; rate: number }>;
   trend: number[];
   failureRows: FailureRow[];
   activity: ActivityItem[];
-  isAllBranches: boolean;
-  onBranchChange: (branchId: string) => void;
-  onOpenBranches: () => void;
 }) {
   const { t } = useI18n();
 
@@ -561,9 +565,6 @@ function DashboardSummary({
         <KpiCard icon={Camera} label={t("admin.kpi.weeklyPhotos")} value={String(selectedSummary.photos)} detail={t("records.photo")} />
         <KpiCard icon={Users} label={t("admin.kpi.branchEmployees")} value={String(selectedSummary.employees)} detail={t("admin.branchEmployees")} />
       </div>
-
-      <BranchSummaryTable branchSummaries={branchSummaries} onBranchChange={onBranchChange} onOpenBranches={onOpenBranches} showHint={isAllBranches} />
-
       <div className="admin-analytics-grid">
         <StatusDonut done={selectedSummary.done} pending={selectedSummary.pending} notDone={selectedSummary.notDone} />
         <LineChart values={trend} />
@@ -595,12 +596,10 @@ function KpiCard({ icon: Icon, label, value, detail, tone = "default" }: { icon:
 function BranchSummaryTable({
   branchSummaries,
   onBranchChange,
-  onOpenBranches,
   showHint = false,
 }: {
   branchSummaries: BranchSummary[];
   onBranchChange: (branchId: string) => void;
-  onOpenBranches?: () => void;
   showHint?: boolean;
 }) {
   const { t } = useI18n();
@@ -612,12 +611,6 @@ function BranchSummaryTable({
           <p>{t("admin.branchSelector")}</p>
           <h2>{t("admin.branchSummary")}</h2>
         </div>
-        {onOpenBranches ? (
-          <button className="admin-secondary-button" type="button" onClick={onOpenBranches}>
-            <SlidersHorizontal size={17} />
-            {t("admin.manageBranches")}
-          </button>
-        ) : null}
       </div>
       {showHint ? <p className="admin-card-note">{t("admin.allBranchesHint")}</p> : null}
 
@@ -838,26 +831,34 @@ function RecentActivity({ items }: { items: ActivityItem[] }) {
 function BranchesSection({
   branchSummaries,
   selectedBranchId,
+  selectedBranch,
+  areas,
+  selectedAreaIds,
   newBranchName,
   onNewBranchNameChange,
   onAddBranch,
   onDeleteBranch,
   onBranchChange,
+  onToggleArea,
 }: {
   branchSummaries: BranchSummary[];
   selectedBranchId: string;
+  selectedBranch?: Branch;
+  areas: Area[];
+  selectedAreaIds: Set<string>;
   newBranchName: string;
   onNewBranchNameChange: (value: string) => void;
   onAddBranch: () => void;
   onDeleteBranch: () => void;
   onBranchChange: (branchId: string) => void;
+  onToggleArea: (areaId: string) => void;
 }) {
   const { t } = useI18n();
 
   return (
     <div className="admin-section-stack">
       <BranchSummaryTable branchSummaries={branchSummaries} onBranchChange={onBranchChange} />
-      <article className="admin-card">
+      <article className="admin-card branch-admin-card">
         <div className="admin-card-header">
           <div>
             <p>{t("fields.branches")}</p>
@@ -885,54 +886,79 @@ function BranchesSection({
           </button>
           <button className="secondary-action danger-action" type="button" onClick={onDeleteBranch} disabled={branchSummaries.length <= 1}>
             <Trash2 size={18} />
-            {t("admin.deleteBranch")}
+            {t("admin.deleteSelectedBranch")}
           </button>
+        </div>
+      </article>
+
+      <article className="admin-card">
+        <div className="admin-card-header">
+          <div>
+            <p>{selectedBranch?.name ?? t("common.noValue")}</p>
+            <h2>{t("admin.branchAreas")}</h2>
+          </div>
+        </div>
+        <p className="admin-card-note">{t("admin.branchAreasHelp")}</p>
+        <div className="branch-area-grid clean-grid">
+          {areas.map((area) => (
+            <label key={area.id}>
+              <input type="checkbox" checked={selectedAreaIds.has(area.id)} onChange={() => onToggleArea(area.id)} />
+              <span>{t(area.nameKey)}</span>
+            </label>
+          ))}
         </div>
       </article>
     </div>
   );
 }
 
-function AreasSection({
-  branch,
-  isAllBranches,
-  areas,
-  areaStats,
-  selectedAreaIds,
-  onToggleArea,
+function UserFilters({
+  branches,
+  search,
+  branchFilter,
+  roleFilter,
+  onSearchChange,
+  onBranchFilterChange,
+  onRoleFilterChange,
 }: {
-  branch?: Branch;
-  isAllBranches: boolean;
-  areas: Area[];
-  areaStats: Array<{ area: Area; done: number; total: number; rate: number }>;
-  selectedAreaIds: Set<string>;
-  onToggleArea: (areaId: string) => void;
+  branches: Branch[];
+  search: string;
+  branchFilter: string;
+  roleFilter: RoleFilter;
+  onSearchChange: (value: string) => void;
+  onBranchFilterChange: (value: string) => void;
+  onRoleFilterChange: (value: RoleFilter) => void;
 }) {
   const { t } = useI18n();
 
   return (
-    <div className="admin-dashboard-grid">
-      <AreaCompliance areaStats={areaStats} />
-      <article className="admin-card">
-        <div className="admin-card-header">
-          <div>
-            <p>{isAllBranches ? t("admin.allBranches") : branch?.name ?? t("common.noValue")}</p>
-            <h2>{t("admin.branchAreas")}</h2>
-          </div>
+    <div className="admin-user-toolbar">
+      <label className="field search-field">
+        <span>{t("fields.search")}</span>
+        <div>
+          <Search size={18} />
+          <input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder={t("admin.users.searchPlaceholder")} />
         </div>
-        {isAllBranches ? (
-          <p className="admin-card-note">{t("admin.chooseBranchForAreas")}</p>
-        ) : (
-          <div className="branch-area-grid clean-grid">
-            {areas.map((area) => (
-              <label key={area.id}>
-                <input type="checkbox" checked={selectedAreaIds.has(area.id)} onChange={() => onToggleArea(area.id)} />
-                <span>{t(area.nameKey)}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </article>
+      </label>
+      <label className="field">
+        <span>{t("admin.filterBranch")}</span>
+        <select value={branchFilter} onChange={(event) => onBranchFilterChange(event.target.value)}>
+          <option value="all">{t("admin.allBranches")}</option>
+          {branches.map((branch) => (
+            <option key={branch.id} value={branch.id}>
+              {branch.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="field">
+        <span>{t("admin.filterRole")}</span>
+        <select value={roleFilter} onChange={(event) => onRoleFilterChange(event.target.value as RoleFilter)}>
+          <option value="all">{t("admin.allRoles")}</option>
+          <option value="employee">{t("roles.employee")}</option>
+          <option value="admin">{t("roles.admin")}</option>
+        </select>
+      </label>
     </div>
   );
 }
@@ -975,6 +1001,101 @@ function UsersSection({
   const { t } = useI18n();
   const branchName = (branchId: string) => branches.find((branch) => branch.id === branchId)?.name ?? branchId;
 
+  if (detailed) {
+    return (
+      <article className="admin-card role-management-panel">
+        <div className="admin-card-header">
+          <div>
+            <p>{t("admin.users.kicker")}</p>
+            <h2>{t("admin.users.title")}</h2>
+          </div>
+          <button className="primary-action compact-action" type="button">
+            <UserPlus size={18} />
+            {t("admin.users.add")}
+          </button>
+        </div>
+
+        <UserFilters
+          branches={branches}
+          search={search}
+          branchFilter={branchFilter}
+          roleFilter={roleFilter}
+          onSearchChange={onSearchChange}
+          onBranchFilterChange={onBranchFilterChange}
+          onRoleFilterChange={onRoleFilterChange}
+        />
+
+        <div className="role-card-grid">
+          {users.map((user) => {
+            const isCurrentUser = user.id === currentUser.id;
+            const inSelectedBranch = Boolean(selectedBranch && (user.assignedBranchIds ?? []).includes(selectedBranch.id));
+
+            return (
+              <article className="role-user-card" key={user.id}>
+                <div className="role-user-card-header">
+                  <div className="user-avatar">{user.name.slice(0, 1).toUpperCase()}</div>
+                  <div>
+                    <strong>{user.name}</strong>
+                    <span>{user.email}</span>
+                  </div>
+                  <span className="status-pill active">{t("admin.active")}</span>
+                </div>
+
+                <div className="role-toggle wide" aria-label={t("fields.role")}>
+                  <button type="button" className={user.role === "employee" ? "active" : ""} onClick={() => onRoleChange(user.id, "employee")} disabled={isCurrentUser}>
+                    {t("roles.employee")}
+                  </button>
+                  <button type="button" className={user.role === "admin" ? "active" : ""} onClick={() => onRoleChange(user.id, "admin")} disabled={isCurrentUser}>
+                    {t("roles.admin")}
+                  </button>
+                </div>
+
+                <div className="role-card-section">
+                  <span>{t("fields.branch")}</span>
+                  <div className="branch-chip-list">
+                    {branches.map((branch) => {
+                      const active = (user.assignedBranchIds ?? []).includes(branch.id);
+                      return (
+                        <button className={active ? "active" : ""} type="button" onClick={() => onToggleBranch(user.id, branch.id)} disabled={isCurrentUser} key={`${user.id}-${branch.id}`}>
+                          {branch.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="role-card-section">
+                  <span>{t("fields.sectors")}</span>
+                  {selectedBranch ? (
+                    <div className="sector-checkboxes">
+                      {assignableAreas.map((area) => {
+                        const disabled = (!inSelectedBranch && area.id !== "management") || (isCurrentUser && area.id === "management");
+                        return (
+                          <label className={disabled ? "disabled-option" : ""} key={`${user.id}-${area.id}`}>
+                            <input
+                              type="checkbox"
+                              checked={(user.assignedSectorIds ?? []).includes(area.id)}
+                              onChange={() => onToggleSector(user.id, area.id)}
+                              disabled={disabled}
+                            />
+                            <span>{t(area.nameKey)}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="admin-card-note">{t("admin.chooseBranchForRoles")}</p>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+          {!users.length ? <p className="empty-state">{t("admin.users.empty")}</p> : null}
+        </div>
+      </article>
+    );
+  }
+
   return (
     <article className="admin-card">
       <div className="admin-card-header">
@@ -988,34 +1109,15 @@ function UsersSection({
         </button>
       </div>
 
-      <div className="admin-user-toolbar">
-        <label className="field search-field">
-          <span>{t("fields.search")}</span>
-          <div>
-            <Search size={18} />
-            <input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder={t("admin.users.searchPlaceholder")} />
-          </div>
-        </label>
-        <label className="field">
-          <span>{t("admin.filterBranch")}</span>
-          <select value={branchFilter} onChange={(event) => onBranchFilterChange(event.target.value)}>
-            <option value="all">{t("admin.allBranches")}</option>
-            {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>{t("admin.filterRole")}</span>
-          <select value={roleFilter} onChange={(event) => onRoleFilterChange(event.target.value as RoleFilter)}>
-            <option value="all">{t("admin.allRoles")}</option>
-            <option value="employee">{t("roles.employee")}</option>
-            <option value="admin">{t("roles.admin")}</option>
-          </select>
-        </label>
-      </div>
+      <UserFilters
+        branches={branches}
+        search={search}
+        branchFilter={branchFilter}
+        roleFilter={roleFilter}
+        onSearchChange={onSearchChange}
+        onBranchFilterChange={onBranchFilterChange}
+        onRoleFilterChange={onRoleFilterChange}
+      />
 
       <div className="admin-table-wrap">
         <table className="admin-table users-table">
@@ -1091,48 +1193,6 @@ function UsersSection({
       <div className="admin-summary-row">
         <span>{t("admin.summary.admins")}: {allUsers.filter((user) => user.role === "admin").length}</span>
         <span>{t("admin.summary.employees")}: {allUsers.filter((user) => user.role === "employee").length}</span>
-      </div>
-    </article>
-  );
-}
-
-function ReportsSection({ selectedBranch, selectedSummary }: { selectedBranch?: Branch; selectedSummary: BranchSummary }) {
-  const { t } = useI18n();
-
-  return (
-    <article className="admin-card report-card">
-      <div className="admin-card-header">
-        <div>
-          <p>{selectedBranch?.name ?? t("common.noValue")}</p>
-          <h2>{t("admin.menu.reports")}</h2>
-        </div>
-      </div>
-      <div className="report-metric-row">
-        <KpiCard icon={TrendingUp} label={t("admin.kpi.weeklyRate")} value={`${selectedSummary.rate}%`} detail={t("weekly.progress")} />
-        <KpiCard icon={ClipboardList} label={t("admin.kpi.weeklyDone")} value={`${selectedSummary.done}/${selectedSummary.total}`} detail={t("weekly.done")} />
-      </div>
-      <button className="primary-action compact-action" type="button" onClick={() => window.print()}>
-        {t("actions.print")}
-      </button>
-    </article>
-  );
-}
-
-function SettingsSection({ selectedBranch, currentUser }: { selectedBranch?: Branch; currentUser: AppUser }) {
-  const { t } = useI18n();
-
-  return (
-    <article className="admin-card">
-      <div className="admin-card-header">
-        <div>
-          <p>{t("admin.menu.settings")}</p>
-          <h2>{t("admin.settingsTitle")}</h2>
-        </div>
-      </div>
-      <div className="settings-list">
-        <span>{t("fields.branch")}: <strong>{selectedBranch?.name ?? t("common.noValue")}</strong></span>
-        <span>{t("fields.employee")}: <strong>{currentUser.name}</strong></span>
-        <span>{t("fields.role")}: <strong>{t(`roles.${currentUser.role}`)}</strong></span>
       </div>
     </article>
   );

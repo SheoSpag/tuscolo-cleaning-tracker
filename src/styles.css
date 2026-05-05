@@ -1148,6 +1148,127 @@ input:focus {
   font-size: 1.8rem;
 }
 
+.weekly-progress-grid p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.employee-history {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.employee-history,
+.employee-history-panel {
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 8px;
+  box-shadow: 0 22px 70px rgba(8, 12, 7, 0.18);
+  backdrop-filter: blur(14px);
+}
+
+.employee-history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.employee-history-grid article {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+}
+
+.employee-history-grid svg,
+.employee-history-title svg {
+  color: var(--color-secondary);
+}
+
+.employee-history-grid span,
+.employee-history-grid p,
+.employee-history-title p,
+.employee-record-list small {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.employee-history-grid strong {
+  font-size: 1.9rem;
+}
+
+.employee-history-panel {
+  display: grid;
+  gap: 14px;
+  box-shadow: none;
+}
+
+.employee-history-title {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.employee-history-title h3 {
+  margin: 2px 0 0;
+}
+
+.employee-mini-chart {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  align-items: end;
+  height: 150px;
+}
+
+.employee-mini-chart div {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 6px;
+  height: 100%;
+  text-align: center;
+}
+
+.employee-mini-chart span {
+  align-self: end;
+  min-height: 8px;
+  background: linear-gradient(180deg, var(--color-secondary), #9ca77a);
+  border-radius: 8px 8px 2px 2px;
+}
+
+.employee-mini-chart strong {
+  color: var(--color-secondary-dark);
+  font-size: 0.85rem;
+}
+
+.employee-record-list {
+  display: grid;
+  gap: 8px;
+}
+
+.employee-record-list div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 10px;
+  align-items: center;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+}
+
+.employee-record-list small {
+  grid-column: 1 / -1;
+}
+
 .management-review-panel {
   display: grid;
   gap: 14px;
@@ -1359,9 +1480,14 @@ input:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  align-items: center;
 }
 
 .admin-summary-row span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
   padding: 8px 10px;
   color: var(--color-secondary-dark);
   background: var(--color-soft);
@@ -1416,10 +1542,14 @@ input:focus {
 
 .danger-action {
   color: var(--color-danger);
+  background: #fff5f4;
+  border-color: rgba(169, 63, 63, 0.28);
 }
 
 .danger-action:disabled {
   color: #969a8d;
+  background: #f4f4ef;
+  border-color: var(--color-line);
 }
 
 .branch-area-panel {
@@ -1774,7 +1904,8 @@ input:focus {
 }
 
 .admin-header-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) auto auto auto;
   align-items: center;
   justify-content: end;
   gap: 10px;
@@ -1783,8 +1914,10 @@ input:focus {
 
 .admin-branch-scope {
   display: grid;
-  gap: 5px;
-  min-width: min(280px, 36vw);
+  grid-template-columns: auto minmax(160px, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
 }
 
 .admin-branch-scope span {
@@ -1875,6 +2008,20 @@ input:focus {
 
 .admin-icon-button {
   display: grid;
+}
+
+.admin-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 12px;
+  color: var(--color-secondary-dark);
+  background: white;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  font-weight: 900;
 }
 
 .admin-section-stack {
@@ -2205,6 +2352,96 @@ input:focus {
   min-width: 980px;
 }
 
+.role-management-panel {
+  align-content: start;
+}
+
+.role-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.role-user-card {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  background: #fbfcf7;
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+}
+
+.role-user-card-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.user-avatar {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  color: white;
+  background: var(--color-secondary);
+  border-radius: 12px;
+  font-weight: 900;
+}
+
+.role-user-card-header strong,
+.role-user-card-header span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.role-user-card-header span {
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.role-toggle.wide {
+  grid-template-columns: 1fr 1fr;
+}
+
+.role-card-section {
+  display: grid;
+  gap: 8px;
+}
+
+.role-card-section > span {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.branch-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.branch-chip-list button {
+  min-height: 34px;
+  padding: 0 10px;
+  color: var(--color-secondary-dark);
+  background: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.branch-chip-list button.active {
+  color: white;
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -2262,6 +2499,97 @@ input:focus {
 
 .clean-grid {
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.app-theme-dark.admin-root {
+  color: #f3f4ec;
+  background: #151c12;
+}
+
+.app-theme-dark .admin-layout {
+  color: #f3f4ec;
+  background:
+    radial-gradient(circle at top right, rgba(126, 139, 91, 0.2), transparent 34rem),
+    #151c12;
+}
+
+.app-theme-dark .admin-content-header,
+.app-theme-dark .admin-card,
+.app-theme-dark .admin-kpi-card,
+.app-theme-dark .role-user-card,
+.app-theme-dark .admin-profile,
+.app-theme-dark .admin-header-actions .language-switcher,
+.app-theme-dark .admin-theme-toggle,
+.app-theme-dark .admin-icon-button,
+.app-theme-dark .admin-branch-scope select,
+.app-theme-dark .admin-table select,
+.app-theme-dark .search-field > div,
+.app-theme-dark .search-field input,
+.app-theme-dark .branch-chip-list button,
+.app-theme-dark .employee-record-list div {
+  color: #f3f4ec;
+  background: #20291b;
+  border-color: rgba(226, 229, 218, 0.16);
+}
+
+.app-theme-dark .admin-content-header {
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.26);
+}
+
+.app-theme-dark .admin-title-block h1,
+.app-theme-dark .admin-card-header h2,
+.app-theme-dark .admin-kpi-card strong,
+.app-theme-dark .admin-table td strong,
+.app-theme-dark .role-user-card-header strong,
+.app-theme-dark .settings-list strong,
+.app-theme-dark .admin-donut span,
+.app-theme-dark .admin-bar-row span,
+.app-theme-dark .activity-item p {
+  color: #f8f8f1;
+}
+
+.app-theme-dark .admin-title-block span,
+.app-theme-dark .admin-profile small,
+.app-theme-dark .admin-kpi-card p,
+.app-theme-dark .admin-kpi-card span,
+.app-theme-dark .admin-table td,
+.app-theme-dark .admin-table th,
+.app-theme-dark .role-card-section > span,
+.app-theme-dark .role-user-card-header span,
+.app-theme-dark .activity-item small,
+.app-theme-dark .admin-card-note {
+  color: #bbc2aa;
+}
+
+.app-theme-dark .admin-table th,
+.app-theme-dark .activity-item,
+.app-theme-dark .admin-card-note,
+.app-theme-dark .settings-list span,
+.app-theme-dark .user-sector-row td {
+  background: #182112;
+  border-color: rgba(226, 229, 218, 0.14);
+}
+
+.app-theme-dark .admin-table td {
+  border-color: rgba(226, 229, 218, 0.12);
+}
+
+.app-theme-dark .bar-track,
+.app-theme-dark .admin-kpi-card > div,
+.app-theme-dark .role-toggle,
+.app-theme-dark .segmented-control {
+  background: #151c12;
+  border-color: rgba(226, 229, 218, 0.14);
+}
+
+.app-theme-dark .admin-donut::after {
+  background: #20291b;
+}
+
+.app-theme-dark .danger-action {
+  color: #ffb4a9;
+  background: rgba(169, 63, 63, 0.14);
+  border-color: rgba(255, 180, 169, 0.22);
 }
 
 .task-manager {
@@ -3337,6 +3665,10 @@ table.admin-table {
 
   .line-chart-labels span {
     font-size: 0.68rem;
+  }
+
+  .admin-branch-scope {
+    grid-template-columns: 1fr;
   }
 }
 

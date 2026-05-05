@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { HomeIcon, LogOut } from "lucide-react";
+import { History, HomeIcon, LogOut } from "lucide-react";
 import { areas as baseAreas, defaultBranches, defaultTasks, defaultUsers } from "./data/mockData";
 import { I18nContext } from "./i18n/I18nContext";
 import { translate } from "./i18n/translations";
@@ -11,6 +11,7 @@ import { FinalScreen } from "./components/FinalScreen";
 import { AuthView } from "./components/AuthView";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { WeeklyTasksView } from "./components/WeeklyTasksView";
+import { EmployeeHistory } from "./components/EmployeeHistory";
 import { api, clearAuthToken, setAuthToken, type ApiState } from "./api";
 import { buildCleaningGroups, isOperationalGroupId, isTaskManagerGroupId, isVisibleGroupId, normalizeGroupAssignments, operationalGroupIds } from "./data/cleaningGroups";
 
@@ -18,8 +19,19 @@ const storageKey = "tuscolo-cleaning-records";
 const taskStorageKey = "tuscolo-cleaning-tasks";
 const usersStorageKey = "tuscolo-users";
 const branchesStorageKey = "tuscolo-branches";
+const themeStorageKey = "tuscolo-theme";
 
-type Screen = "home" | "wizard" | "final" | "dashboard" | "tasks" | "records";
+type Screen = "home" | "wizard" | "final" | "dashboard" | "tasks" | "records" | "history";
+type Theme = "light" | "dark";
+
+function loadTheme(): Theme {
+  try {
+    const raw = localStorage.getItem(themeStorageKey);
+    return raw === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
 
 function loadRecords(): CleaningRecord[] {
   try {
@@ -89,6 +101,7 @@ function App() {
   const [records, setRecords] = useState<CleaningRecord[]>(loadRecords);
   const [tasks, setTasks] = useState<CleaningTask[]>(loadTasks);
   const [lastRecord, setLastRecord] = useState<CleaningRecord | null>(null);
+  const [theme, setTheme] = useState<Theme>(loadTheme);
 
   const applyRemoteState = (state: ApiState) => {
     const nextBranches = (state.branches?.length ? state.branches : defaultBranches).map(normalizeBranch);
@@ -313,6 +326,11 @@ function App() {
     void api.saveTasks(nextTasks).catch(() => undefined);
   };
 
+  const updateTheme = (nextTheme: Theme) => {
+    setTheme(nextTheme);
+    localStorage.setItem(themeStorageKey, nextTheme);
+  };
+
   const restart = () => {
     setLastRecord(null);
     setScreen("home");
@@ -326,7 +344,7 @@ function App() {
 
   return (
     <I18nContext.Provider value={i18nValue}>
-      <main className={isAdmin ? "admin-root" : currentUser ? "app-shell" : "app-shell auth-shell"}>
+      <main className={`${isAdmin ? "admin-root" : currentUser ? "app-shell" : "app-shell auth-shell"} app-theme-${theme}`}>
         {!isAdmin ? <Header compact={!currentUser} /> : null}
         {!currentUser ? <AuthView users={users} onLogin={login} onStartRegister={startRegister} onVerifyRegister={verifyRegister} error={error} /> : null}
         {currentUser && !isAdmin ? (
@@ -334,6 +352,10 @@ function App() {
             <button className={screen === "home" ? "active" : ""} type="button" onClick={() => goToScreen("home")}>
               <HomeIcon size={18} />
               {translate(language, "nav.home")}
+            </button>
+            <button className={screen === "history" ? "active" : ""} type="button" onClick={() => goToScreen("history")}>
+              <History size={18} />
+              {translate(language, "nav.history")}
             </button>
             <button type="button" onClick={logout}>
               <LogOut size={18} />
@@ -356,6 +378,8 @@ function App() {
             onBranchesChange={updateBranches}
             onTasksChange={updateTasks}
             onUsersChange={updateUsers}
+            theme={theme}
+            onThemeChange={updateTheme}
             onLogout={logout}
           />
         ) : null}
@@ -377,6 +401,9 @@ function App() {
             />
             <WeeklyTasksView areas={availableAreas} allAreas={visibleAreas} records={selectedBranchRecords} users={users} employee={currentUser} onSave={saveRecord} />
           </>
+        ) : null}
+        {currentUser && !isAdmin && screen === "history" ? (
+          <EmployeeHistory records={records.filter((record) => record.employeeId === currentUser.id)} areas={[...visibleAreas, ...baseAreasWithTasks]} employee={currentUser} />
         ) : null}
         {!isAdmin && screen === "wizard" && selectedArea && (currentUser ?? selectedEmployee) ? (
           <CleaningWizard area={{ ...selectedArea, tasks: selectedArea.tasks.filter((task) => task.frequency === "daily") }} employee={(currentUser ?? selectedEmployee)!} onSave={saveRecord} />
