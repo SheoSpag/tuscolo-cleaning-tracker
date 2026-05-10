@@ -620,6 +620,7 @@ export function AdminDashboard({
 
         {activeSection === "branches" ? (
           <BranchesSection
+            users={users}
             branchSummaries={branchSummaries}
             selectedBranchId={selectedBranch?.id ?? ""}
             selectedBranch={selectedBranch}
@@ -1039,6 +1040,7 @@ function RecentActivity({ items }: { items: ActivityItem[] }) {
 }
 
 function BranchesSection({
+  users,
   branchSummaries,
   selectedBranchId,
   selectedBranch,
@@ -1062,6 +1064,7 @@ function BranchesSection({
   onCancelAreaEdit,
   onDeleteArea,
 }: {
+  users: AppUser[];
   branchSummaries: BranchSummary[];
   selectedBranchId: string;
   selectedBranch?: Branch;
@@ -1152,19 +1155,44 @@ function BranchesSection({
             const isCustom = customAreaIds.has(area.id);
             const isActive = selectedAreaIds.has(area.id);
             const isEditing = editingAreaId === area.id;
+            const assignedUsers = selectedBranch
+              ? users.filter(
+                  (user) =>
+                    user.role === "employee" &&
+                    (user.assignedBranchIds ?? []).includes(selectedBranch.id) &&
+                    (user.assignedSectorIds ?? []).includes(area.id),
+                )
+              : [];
             return (
               <article className={`branch-area-card ${isActive ? "active" : ""}`} key={area.id}>
-                <label className="branch-area-toggle">
-                  <input type="checkbox" checked={isActive} onChange={() => onToggleArea(area.id)} />
-                  <span>{isActive ? t("admin.areaActive") : t("admin.areaInactive")}</span>
-                </label>
-                <div className="branch-area-card-main">
-                  {isEditing ? (
-                    <input value={editingAreaName} onChange={(event) => onEditingAreaNameChange(event.target.value)} aria-label={t("admin.editAreaName")} />
-                  ) : (
-                    <strong>{t(area.nameKey)}</strong>
-                  )}
-                  <small>{isCustom ? t("admin.customArea") : t("admin.baseArea")}</small>
+                <div className="branch-area-card-top">
+                  <div className="branch-area-card-main">
+                    {isEditing ? (
+                      <input value={editingAreaName} onChange={(event) => onEditingAreaNameChange(event.target.value)} aria-label={t("admin.editAreaName")} />
+                    ) : (
+                      <strong>{t(area.nameKey)}</strong>
+                    )}
+                    <small>{isCustom ? t("admin.customArea") : t("admin.baseArea")}</small>
+                  </div>
+                  <label className="branch-area-toggle">
+                    <input type="checkbox" checked={isActive} onChange={() => onToggleArea(area.id)} />
+                    <span>{isActive ? t("admin.areaActive") : t("admin.areaInactive")}</span>
+                  </label>
+                </div>
+                <div className="branch-area-people">
+                  <span>
+                    <Users size={15} />
+                    {t("admin.assignedEmployees")} · {assignedUsers.length}
+                  </span>
+                  <div>
+                    {assignedUsers.slice(0, 5).map((user) => (
+                      <small className="branch-person-chip" key={`${area.id}-${user.id}`}>
+                        {user.name}
+                      </small>
+                    ))}
+                    {assignedUsers.length > 5 ? <small className="branch-person-chip muted-chip">+{assignedUsers.length - 5}</small> : null}
+                    {!assignedUsers.length ? <small className="branch-person-empty">{t("admin.noAssignedEmployees")}</small> : null}
+                  </div>
                 </div>
                 <div className="branch-area-card-actions">
                   {isCustom ? (
@@ -1581,7 +1609,9 @@ function UsersSection({
                         <button className="admin-link-button" type="button" onClick={() => onToggleBranch(user.id, selectedBranch.id)} disabled={isCurrentUser}>
                           {inSelectedBranch ? t("admin.users.removeBranch") : t("admin.users.addBranch")}
                         </button>
-                      ) : null}
+                      ) : (
+                        <span className="employee-action-note">{t("admin.selectBranchForAction")}</span>
+                      )}
                     </td>
                   </tr>
                   {detailed ? (

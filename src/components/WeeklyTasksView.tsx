@@ -225,145 +225,147 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
   };
 
   return (
-    <section className="weekly-section">
-      <div className="section-heading">
-        <div>
-          <p>{t("weekly.kicker")}</p>
-          <h2>{t("weekly.title")}</h2>
+    <>
+      <section className="weekly-section">
+        <div className="section-heading">
+          <div>
+            <p>{t("weekly.kicker")}</p>
+            <h2>{t("weekly.title")}</h2>
+          </div>
         </div>
-      </div>
 
-      <div className="weekly-progress-grid">
-        <article>
-          <span>{t("weekly.progress")}</span>
-          <strong>{progress}%</strong>
-          <div className="bar-track">
-            <div style={{ width: `${progress}%` }} />
-          </div>
-          <p>{pendingCount ? `${pendingCount} ${t("weekly.remainingToFull")}` : t("weekly.fullCompleted")}</p>
-        </article>
-        <article>
-          <span>{t("weekly.done")}</span>
-          <strong>{doneCount}</strong>
-        </article>
-        <article>
-          <span>{t("weekly.pending")}</span>
-          <strong>{pendingCount}</strong>
-        </article>
-      </div>
-
-      {uniqueWeeklyTasks.length ? (
-        <>
-          <div className="weekly-filter-row" aria-label={t("weekly.quickFilters")}>
-            <button className={weeklyFilter === "pending" ? "active" : ""} type="button" onClick={() => setWeeklyFilter("pending")}>
-              {t("weekly.showPending")} ({pendingCount})
-            </button>
-            <button className={weeklyFilter === "done" ? "active" : ""} type="button" onClick={() => setWeeklyFilter("done")}>
-              {t("weekly.showDone")} ({doneCount})
-            </button>
-            <button className={weeklyFilter === "all" ? "active" : ""} type="button" onClick={() => setWeeklyFilter("all")}>
-              {t("weekly.showAll")}
-            </button>
-          </div>
-          <div className="weekly-filter-controls">
-            <label className="field search-field">
-              <span>{t("fields.search")}</span>
-              <div>
-                <Search size={18} />
-                <input value={weeklySearch} onChange={(event) => setWeeklySearch(event.target.value)} placeholder={t("weekly.searchPlaceholder")} />
-              </div>
-            </label>
-            <label className="field">
-              <span>{t("fields.area")}</span>
-              <select value={weeklyAreaFilter} onChange={(event) => setWeeklyAreaFilter(event.target.value)}>
-                <option value="all">{t("weekly.allAreas")}</option>
-                {weeklyAreas.map((area) => (
-                  <option key={area.id} value={area.id}>
-                    {t(area.nameKey)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="weekly-task-list">
-          {filteredWeeklyTaskRows.map((item) => {
-            const doneRecord = item.doneRecord;
-            const user = doneRecord ? users.find((candidate) => candidate.id === doneRecord.employeeId) : null;
-
-            return (
-              <article className="weekly-task-row" key={`${item.area.id}-${item.task.id}`}>
-                <div>
-                  <span>{t(item.area.nameKey)}</span>
-                  <strong>{translateTask(item.task, language)}</strong>
-                  {doneRecord ? <p>{t("weekly.doneBy")}: {user?.name ?? doneRecord.employeeId}</p> : <p>{t("weekly.pending")}</p>}
-                </div>
-                {doneRecord ? (
-                  <Check size={22} className="success-icon" />
-                ) : (
-                  <button className="secondary-action" type="button" onClick={() => openWeeklySubmit(item)}>
-                    <Camera size={18} />
-                    {t("actions.submitWeekly")}
-                  </button>
-                )}
-              </article>
-            );
-          })}
-          {!filteredWeeklyTaskRows.length ? <p className="empty-state">{t("weekly.emptyFilter")}</p> : null}
-          </div>
-        </>
-      ) : (
-        <p className="empty-state">{t("weekly.empty")}</p>
-      )}
-
-      {managementMode ? (
-        <article className="management-review-panel">
-          <div className="section-heading">
-            <div>
-              <p>{t("weekly.managementHelp")}</p>
-              <h2>{t("weekly.managementTitle")}</h2>
+        <div className="weekly-progress-grid">
+          <article>
+            <span>{t("weekly.progress")}</span>
+            <strong>{progress}%</strong>
+            <div className="bar-track">
+              <div style={{ width: `${progress}%` }} />
             </div>
-            <ShieldCheck size={24} />
-          </div>
-          {pendingReviewRecords.length ? (
+            <p>{pendingCount ? `${pendingCount} ${t("weekly.remainingToFull")}` : t("weekly.fullCompleted")}</p>
+          </article>
+          <article>
+            <span>{t("weekly.done")}</span>
+            <strong>{doneCount}</strong>
+          </article>
+          <article>
+            <span>{t("weekly.pending")}</span>
+            <strong>{pendingCount}</strong>
+          </article>
+        </div>
+
+        {uniqueWeeklyTasks.length ? (
+          <>
+            <div className="weekly-filter-row" aria-label={t("weekly.quickFilters")}>
+              <button className={weeklyFilter === "pending" ? "active" : ""} type="button" onClick={() => setWeeklyFilter("pending")}>
+                {t("weekly.showPending")} ({pendingCount})
+              </button>
+              <button className={weeklyFilter === "done" ? "active" : ""} type="button" onClick={() => setWeeklyFilter("done")}>
+                {t("weekly.showDone")} ({doneCount})
+              </button>
+              <button className={weeklyFilter === "all" ? "active" : ""} type="button" onClick={() => setWeeklyFilter("all")}>
+                {t("weekly.showAll")}
+              </button>
+            </div>
+            <div className="weekly-filter-controls">
+              <label className="field search-field">
+                <span>{t("fields.search")}</span>
+                <div>
+                  <Search size={18} />
+                  <input value={weeklySearch} onChange={(event) => setWeeklySearch(event.target.value)} placeholder={t("weekly.searchPlaceholder")} />
+                </div>
+              </label>
+              <label className="field">
+                <span>{t("fields.area")}</span>
+                <select value={weeklyAreaFilter} onChange={(event) => setWeeklyAreaFilter(event.target.value)}>
+                  <option value="all">{t("weekly.allAreas")}</option>
+                  {weeklyAreas.map((area) => (
+                    <option key={area.id} value={area.id}>
+                      {t(area.nameKey)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <div className="weekly-task-list">
-              {pendingReviewRecords.map((record) => {
-                const result = record.taskResults?.[0];
-                const user = users.find((candidate) => candidate.id === record.employeeId);
-                const area = allAreas.find((candidate) => candidate.id === record.areaId);
-                const photos = record.photoUrls ?? [];
+              {filteredWeeklyTaskRows.map((item) => {
+                const doneRecord = item.doneRecord;
+                const user = doneRecord ? users.find((candidate) => candidate.id === doneRecord.employeeId) : null;
 
                 return (
-                  <article className="weekly-task-row" key={record.id}>
+                  <article className="weekly-task-row" key={`${item.area.id}-${item.task.id}`}>
                     <div>
-                      <span>{area ? t(area.nameKey) : record.areaId}</span>
-                      <strong>{result ? translateTask({ id: result.taskId, areaId: record.areaId, frequency: "weekly", question: result.label }, language) : t("fields.task")}</strong>
-                      <p>{t("weekly.doneBy")}: {user?.name ?? record.employeeId}</p>
-                      {photos.length ? (
-                        <div className="photo-evidence-list">
-                          {photos.map((photoUrl, index) => (
-                            <a className="photo-evidence" href={photoUrl} target="_blank" rel="noreferrer" key={`${record.id}-${index}`}>
-                              <img src={photoUrl} alt={`${t("records.photo")} ${index + 1}`} />
-                              <span>{t("records.photo")} {index + 1}</span>
-                            </a>
-                          ))}
-                        </div>
-                      ) : null}
+                      <span>{t(item.area.nameKey)}</span>
+                      <strong>{translateTask(item.task, language)}</strong>
+                      {doneRecord ? <p>{t("weekly.doneBy")}: {user?.name ?? doneRecord.employeeId}</p> : <p>{t("weekly.pending")}</p>}
                     </div>
-                    <button className="secondary-action" type="button" onClick={() => validateWeeklyRecord(record)}>
-                      <ClipboardCheck size={18} />
-                      {t("actions.validateWeekly")}
-                    </button>
+                    {doneRecord ? (
+                      <Check size={22} className="success-icon" />
+                    ) : (
+                      <button className="secondary-action" type="button" onClick={() => openWeeklySubmit(item)}>
+                        <Camera size={18} />
+                        {t("actions.submitWeekly")}
+                      </button>
+                    )}
                   </article>
                 );
               })}
+              {!filteredWeeklyTaskRows.length ? <p className="empty-state">{t("weekly.emptyFilter")}</p> : null}
             </div>
-          ) : (
-            <p className="empty-state">{t("weekly.noReviews")}</p>
-          )}
-        </article>
-      ) : null}
+          </>
+        ) : (
+          <p className="empty-state">{t("weekly.empty")}</p>
+        )}
 
-      {activeTask ? (
+        {managementMode ? (
+          <article className="management-review-panel">
+            <div className="section-heading">
+              <div>
+                <p>{t("weekly.managementHelp")}</p>
+                <h2>{t("weekly.managementTitle")}</h2>
+              </div>
+              <ShieldCheck size={24} />
+            </div>
+            {pendingReviewRecords.length ? (
+              <div className="weekly-task-list">
+                {pendingReviewRecords.map((record) => {
+                  const result = record.taskResults?.[0];
+                  const user = users.find((candidate) => candidate.id === record.employeeId);
+                  const area = allAreas.find((candidate) => candidate.id === record.areaId);
+                  const photos = record.photoUrls ?? [];
+
+                  return (
+                    <article className="weekly-task-row" key={record.id}>
+                      <div>
+                        <span>{area ? t(area.nameKey) : record.areaId}</span>
+                        <strong>{result ? translateTask({ id: result.taskId, areaId: record.areaId, frequency: "weekly", question: result.label }, language) : t("fields.task")}</strong>
+                        <p>{t("weekly.doneBy")}: {user?.name ?? record.employeeId}</p>
+                        {photos.length ? (
+                          <div className="photo-evidence-list">
+                            {photos.map((photoUrl, index) => (
+                              <a className="photo-evidence" href={photoUrl} target="_blank" rel="noreferrer" key={`${record.id}-${index}`}>
+                                <img src={photoUrl} alt={`${t("records.photo")} ${index + 1}`} />
+                                <span>{t("records.photo")} {index + 1}</span>
+                              </a>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                      <button className="secondary-action" type="button" onClick={() => validateWeeklyRecord(record)}>
+                        <ClipboardCheck size={18} />
+                        {t("actions.validateWeekly")}
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="empty-state">{t("weekly.noReviews")}</p>
+            )}
+          </article>
+        ) : null}
+      </section>
+
+      {activeTask && !cameraOpen ? (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="weekly-submit-title">
           <div className="confirm-no-photo">
             <h3 id="weekly-submit-title">{translateTask(activeTask.task, language)}</h3>
@@ -421,7 +423,7 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
           onCapture={capturePhoto}
         />
       ) : null}
-    </section>
+    </>
   );
 }
 
@@ -452,7 +454,7 @@ function WeeklyCameraModal({ totalPhotos, maxPhotos, cameraError, isCameraStarti
         </div>
         <div className="camera-preview">
           {cameraError ? <p className="error-text">{cameraError}</p> : null}
-          {!cameraError ? <video ref={videoRef} playsInline muted /> : null}
+          {!cameraError ? <video ref={videoRef} playsInline muted autoPlay /> : null}
           {isCameraStarting ? <span>{t("wizard.cameraStarting")}</span> : null}
         </div>
         <div className="confirm-actions">

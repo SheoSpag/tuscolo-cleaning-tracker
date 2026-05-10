@@ -215,6 +215,7 @@ function RecordDetailModal({ record, area, employee, onClose }: RecordDetailModa
   const taskPhotoCount = taskResults.reduce((sum, result) => sum + (result.photoUrls?.length ?? 0), 0);
   const recordPhotoUrls = record.photoUrls?.length ? record.photoUrls : record.photoUrl ? [record.photoUrl] : [];
   const summaryPhotoUrls = record.recordType === "daily" || !taskPhotoCount ? recordPhotoUrls : [];
+  const totalPhotos = taskPhotoCount || summaryPhotoUrls.length;
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="record-detail-title">
@@ -228,6 +229,12 @@ function RecordDetailModal({ record, area, employee, onClose }: RecordDetailModa
           <button className="icon-action" type="button" onClick={onClose} aria-label={t("actions.cancel")}>
             <X size={18} />
           </button>
+        </div>
+
+        <div className="record-detail-meta">
+          <span className={`table-status ${record.status}`}>{t(`states.${record.status}`)}</span>
+          <span>{totalPhotos ? `${totalPhotos} ${t("records.photo")}` : t("records.noPhoto")}</span>
+          {record.comment ? <p>{t("fields.comment")}: {record.comment}</p> : null}
         </div>
 
         <div className="record-detail-list">

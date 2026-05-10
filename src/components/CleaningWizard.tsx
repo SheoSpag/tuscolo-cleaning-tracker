@@ -29,6 +29,7 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
   const [isCameraStarting, setIsCameraStarting] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const stepButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const currentTask = area.tasks[stepIndex];
   const finishedQuestions = stepIndex >= area.tasks.length;
@@ -92,6 +93,14 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
       stopCamera();
     };
   }, [cameraOpen]);
+
+  useEffect(() => {
+    stepButtonRefs.current[stepIndex]?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    });
+  }, [area.tasks.length, stepIndex]);
 
   const showFeedback = (message: string) => {
     setFeedback(message);
@@ -348,6 +357,9 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
               className={`${index === stepIndex ? "active" : ""} ${answer === "yes" ? "done" : answer === "no" ? "failed" : ""}`}
               type="button"
               onClick={() => goToStep(index)}
+              ref={(node) => {
+                stepButtonRefs.current[index] = node;
+              }}
               key={task.id}
               aria-label={`${t("wizard.step")} ${index + 1}`}
             >
@@ -436,7 +448,7 @@ function CameraModal({
         </div>
         <div className="camera-preview">
           {cameraError ? <p className="error-text">{cameraError}</p> : null}
-          {!cameraError ? <video ref={videoRef} playsInline muted /> : null}
+          {!cameraError ? <video ref={videoRef} playsInline muted autoPlay /> : null}
           {isCameraStarting ? <span>{t("wizard.cameraStarting")}</span> : null}
         </div>
         <div className="confirm-actions">

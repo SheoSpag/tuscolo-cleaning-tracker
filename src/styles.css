@@ -1878,15 +1878,16 @@ input:focus {
 
 .branch-area-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
 }
 
 .branch-area-card {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
-  padding: 12px;
+  gap: 14px;
+  min-height: 190px;
+  padding: 14px;
   background: #fbfcf7;
   border: 1px solid var(--color-line);
   border-radius: 14px;
@@ -1895,6 +1896,13 @@ input:focus {
 .branch-area-card.active {
   border-color: rgba(107, 116, 77, 0.38);
   box-shadow: inset 4px 0 0 var(--color-secondary);
+}
+
+.branch-area-card-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
 }
 
 .branch-area-toggle {
@@ -1942,6 +1950,56 @@ input:focus {
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 8px;
+}
+
+.branch-area-people {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  min-height: 74px;
+  padding: 10px;
+  background: white;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+}
+
+.branch-area-people > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.branch-area-people > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.branch-person-chip,
+.branch-person-empty {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 8px;
+  color: var(--color-secondary-dark);
+  background: var(--color-soft);
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.branch-person-empty {
+  color: var(--color-muted);
+  border-style: dashed;
+}
+
+.muted-chip {
+  color: var(--color-muted);
 }
 
 .danger-link {
@@ -2753,6 +2811,20 @@ input:focus {
   margin-left: auto;
 }
 
+.employee-action-note {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 6px 10px;
+  color: var(--color-muted);
+  background: var(--color-soft);
+  border: 1px dashed var(--color-line);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
 .role-management-panel {
   align-content: start;
 }
@@ -2954,9 +3026,16 @@ input:focus {
 .app-theme-dark .admin-dialog,
 .app-theme-dark .record-mobile-card,
 .app-theme-dark .record-mobile-card dl,
+.app-theme-dark .record-detail-meta,
+.app-theme-dark .record-detail-meta > span:not(.table-status),
+.app-theme-dark .record-task-detail,
+.app-theme-dark .record-task-detail span,
 .app-theme-dark .task-options-menu,
 .app-theme-dark .role-user-card,
 .app-theme-dark .branch-area-card,
+.app-theme-dark .branch-area-people,
+.app-theme-dark .branch-person-chip,
+.app-theme-dark .branch-person-empty,
 .app-theme-dark .branch-area-toggle,
 .app-theme-dark .task-area-panel,
 .app-theme-dark .task-editor-card,
@@ -2972,6 +3051,7 @@ input:focus {
 .app-theme-dark .search-field > div,
 .app-theme-dark .search-field input,
 .app-theme-dark .branch-chip-list button,
+.app-theme-dark .employee-action-note,
 .app-theme-dark .employee-record-list div {
   color: #f3f4ec;
   background: #20291b;
@@ -2993,6 +3073,7 @@ input:focus {
 .app-theme-dark .admin-dialog-header h3,
 .app-theme-dark .record-mobile-card strong,
 .app-theme-dark .record-mobile-card dd,
+.app-theme-dark .record-task-detail strong,
 .app-theme-dark .employee-performance-row strong,
 .app-theme-dark .task-metrics-grid strong,
 .app-theme-dark .task-list-header h3,
@@ -3019,8 +3100,12 @@ input:focus {
 .app-theme-dark .admin-help-list span,
 .app-theme-dark .record-mobile-card p,
 .app-theme-dark .record-card-note,
+.app-theme-dark .record-detail-meta p,
+.app-theme-dark .record-task-detail p,
 .app-theme-dark .record-mobile-card dt,
 .app-theme-dark .employee-score-line,
+.app-theme-dark .employee-action-note,
+.app-theme-dark .branch-area-people > span,
 .app-theme-dark .task-area-list small,
 .app-theme-dark .activity-item small,
 .app-theme-dark .admin-card-note {
@@ -3539,6 +3624,38 @@ a {
   font-weight: 700;
 }
 
+.record-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  background: var(--color-soft);
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+}
+
+.record-detail-meta > span:not(.table-status) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 10px;
+  color: var(--color-secondary-dark);
+  background: white;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.record-detail-meta p {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--color-muted);
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .record-detail-list {
   display: grid;
   gap: 12px;
@@ -3868,11 +3985,17 @@ a {
     overflow-wrap: anywhere;
   }
 
+  .wizard-panel {
+    padding-bottom: calc(118px + env(safe-area-inset-bottom));
+  }
+
   .wizard-actions {
-    position: sticky;
-    bottom: 8px;
-    z-index: 4;
-    margin: 0 -6px -6px;
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    z-index: 70;
+    margin: 0;
     padding: 8px;
     grid-template-columns: 0.78fr 1fr 1fr;
     background: rgba(255, 255, 255, 0.92);
@@ -3941,6 +4064,19 @@ a {
 
   .branch-area-list {
     grid-template-columns: 1fr;
+  }
+
+  .branch-area-card {
+    min-height: 0;
+  }
+
+  .branch-area-card-top {
+    grid-template-columns: 1fr;
+  }
+
+  .branch-area-toggle {
+    width: 100%;
+    justify-content: center;
   }
 
   .branch-area-card-main strong,
@@ -4171,10 +4307,11 @@ a {
     width: 100%;
     max-height: calc(100dvh - 16px);
     padding: 14px;
+    border-radius: 14px;
   }
 
   .record-photo-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
   }
 
   .photo-thumb-grid {
@@ -4227,7 +4364,18 @@ a {
   }
 
   .record-detail-header {
+    display: grid;
+    grid-template-columns: 1fr auto;
     gap: 10px;
+  }
+
+  .record-detail-meta {
+    display: grid;
+    gap: 8px;
+  }
+
+  .record-task-detail {
+    padding: 12px;
   }
 
   .auth-tabs {
