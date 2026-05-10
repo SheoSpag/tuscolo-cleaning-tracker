@@ -2913,14 +2913,16 @@ input:focus {
 
 .role-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 16px;
+  align-items: start;
 }
 
 .role-user-card {
   display: grid;
-  gap: 14px;
-  padding: 14px;
+  gap: 16px;
+  min-width: 0;
+  padding: 16px;
   background: #fbfcf7;
   border: 1px solid var(--color-line);
   border-radius: 14px;
@@ -2928,9 +2930,18 @@ input:focus {
 
 .role-user-card-header {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
   align-items: center;
+}
+
+.role-user-card-header .status-pill {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.role-user-card-header .user-avatar + div {
+  min-width: 0;
 }
 
 .user-avatar {
@@ -2960,6 +2971,7 @@ input:focus {
 
 .role-toggle.wide {
   grid-template-columns: 1fr 1fr;
+  min-height: 42px;
 }
 
 .employee-performance-row {
@@ -3013,7 +3025,9 @@ input:focus {
 }
 
 .branch-chip-list button {
+  flex: 0 1 auto;
   min-height: 34px;
+  max-width: 100%;
   padding: 0 10px;
   color: var(--color-secondary-dark);
   background: #fff;
@@ -3021,6 +3035,7 @@ input:focus {
   border-radius: 999px;
   font-size: 0.82rem;
   font-weight: 850;
+  line-height: 1.1;
 }
 
 .branch-chip-list button.active {
@@ -3372,6 +3387,28 @@ input:focus {
   background: rgba(169, 63, 63, 0.16);
 }
 
+.app-theme-dark .status-pill.active {
+  color: #f8f8f1;
+  background: rgba(107, 116, 77, 0.38);
+  border: 1px solid rgba(220, 229, 198, 0.18);
+}
+
+.app-theme-dark .branch-chip-list button.active {
+  color: #fff;
+  background: #6b744d;
+  border-color: #8d9867;
+}
+
+.app-theme-dark .sector-checkboxes label {
+  color: #f3f4ec;
+  background: #151c12;
+  border-color: rgba(226, 229, 218, 0.14);
+}
+
+.app-theme-dark .sector-checkboxes input:checked + span {
+  color: #fff;
+}
+
 .app-theme-dark .admin-table th,
 .app-theme-dark .activity-item,
 .app-theme-dark .admin-card-note,
@@ -3550,6 +3587,27 @@ input:focus {
 }
 
 .app-theme-dark .task-area-list button.active small {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.app-theme-dark .branch-selector-list button {
+  color: #f3f4ec;
+  background: #20291b;
+  border-color: rgba(226, 229, 218, 0.16);
+}
+
+.app-theme-dark .branch-selector-list button.active {
+  color: #fff;
+  background: #6b744d;
+  border-color: #8d9867;
+  box-shadow: inset 4px 0 0 #dce5c6, 0 10px 22px rgba(0, 0, 0, 0.16);
+}
+
+.app-theme-dark .branch-selector-list button.active strong {
+  color: #fff;
+}
+
+.app-theme-dark .branch-selector-list button.active span {
   color: rgba(255, 255, 255, 0.78);
 }
 

@@ -1,5 +1,6 @@
 import { CalendarDays, CheckCircle2, Layers3, MoreHorizontal, Pencil, Plus, Save, Search, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Area, CleaningTask } from "../types";
 import { useI18n } from "../i18n/I18nContext";
 import { translateTask } from "../i18n/taskTranslations";
@@ -253,8 +254,9 @@ function TaskDialog({
   onSave: () => void;
 }) {
   const { t } = useI18n();
+  const portalTarget = document.querySelector(".app-theme-dark, .app-theme-light") ?? document.body;
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="task-dialog-title">
       <div className="admin-dialog">
         <div className="admin-dialog-header">
@@ -287,6 +289,7 @@ function TaskDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    portalTarget,
   );
 }
