@@ -19,12 +19,42 @@ type RecordFilter = "all";
 type StatusFilter = RecordFilter | RecordStatus;
 type TypeFilter = RecordFilter | CleaningRecordType;
 
+const dayInMs = 24 * 60 * 60 * 1000;
+
 function startOfWeek(date: Date) {
   const next = new Date(date);
   const day = next.getDay();
   next.setDate(next.getDate() + (day === 0 ? -6 : 1 - day));
   next.setHours(0, 0, 0, 0);
   return next;
+}
+
+function getPeriodRange(period: SummaryPeriod, date: Date) {
+  if (period === "month") {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1);
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+    return { start, end };
+  }
+
+  const start = startOfWeek(date);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 7);
+  return { start, end };
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function collectPhotoUrls(record: CleaningRecord) {
+  const taskPhotos = record.taskResults?.flatMap((result) => result.photoUrls ?? []) ?? [];
+  const recordPhotos = record.photoUrls?.length ? record.photoUrls : record.photoUrl ? [record.photoUrl] : [];
+  return [...recordPhotos, ...taskPhotos];
 }
 
 export function RecordsView({ records, areas, employees, branches = [], selectedBranchId, onBranchChange }: RecordsViewProps) {
@@ -43,44 +73,45 @@ export function RecordsView({ records, areas, employees, branches = [], selected
   };
   const locale = localeByLanguage[language];
   const now = new Date();
-  const formatter = new Intl.DateTimeFormat(locale, period === "month" ? { month: "long", year: "numeric" } : { day: "2-digit", month: "short", year: "numeric" });
-  const weekStart = startOfWeek(now);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
+  const formatReportTitle = (targetPeriod: SummaryPeriod) => {
+    const formatter = new Intl.DateTimeFormat(locale, targetPeriod === "month" ? { month: "long", year: "numeric" } : { day: "2-digit", month: "short", year: "numeric" });
+    if (targetPeriod === "month") {
+      return formatter.format(now);
+    }
+
+    const range = getPeriodRange("week", now);
+    return `${formatter.format(range.start)} - ${formatter.format(new Date(range.end.getTime() - dayInMs))}`;
+  };
+  const matchesRecordFilters = (record: CleaningRecord, targetPeriod: SummaryPeriod) => {
+    const date = new Date(record.createdAt);
+    const fallbackBranchId = branches[0]?.id;
+    if (selectedBranchId && (record.branchId ?? fallbackBranchId) !== selectedBranchId) {
+      return false;
+    }
+    if (employeeFilter !== "all" && record.employeeId !== employeeFilter) {
+      return false;
+    }
+    if (areaFilter !== "all" && record.areaId !== areaFilter) {
+      return false;
+    }
+    if (statusFilter !== "all" && record.status !== statusFilter) {
+      return false;
+    }
+    if (typeFilter !== "all" && (record.recordType ?? "daily") !== typeFilter) {
+      return false;
+    }
+
+    const range = getPeriodRange(targetPeriod, now);
+    return date >= range.start && date < range.end;
+  };
+  const getRecordsForPeriod = (targetPeriod: SummaryPeriod) => records.filter((record) => matchesRecordFilters(record, targetPeriod));
 
   const currentRecords = useMemo(
-    () =>
-      records.filter((record) => {
-        const date = new Date(record.createdAt);
-        const fallbackBranchId = branches[0]?.id;
-        if (selectedBranchId && (record.branchId ?? fallbackBranchId) !== selectedBranchId) {
-          return false;
-        }
-        if (employeeFilter !== "all" && record.employeeId !== employeeFilter) {
-          return false;
-        }
-        if (areaFilter !== "all" && record.areaId !== areaFilter) {
-          return false;
-        }
-        if (statusFilter !== "all" && record.status !== statusFilter) {
-          return false;
-        }
-        if (typeFilter !== "all" && (record.recordType ?? "daily") !== typeFilter) {
-          return false;
-        }
-
-        if (period === "month") {
-          return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-        }
-
-        const end = new Date(weekStart);
-        end.setDate(weekStart.getDate() + 7);
-        return date >= weekStart && date < end;
-      }),
-    [areaFilter, branches, employeeFilter, records, period, selectedBranchId, statusFilter, typeFilter, weekStart],
+    () => getRecordsForPeriod(period),
+    [areaFilter, branches, employeeFilter, records, period, selectedBranchId, statusFilter, typeFilter],
   );
 
-  const title = period === "month" ? formatter.format(now) : `${formatter.format(weekStart)} - ${formatter.format(weekEnd)}`;
+  const title = formatReportTitle(period);
   const findArea = (areaId: string) => areas.find((area) => area.id === areaId);
   const findEmployee = (employeeId: string) => employees.find((employee) => employee.id === employeeId);
   const findBranch = (branchId?: string) => branches.find((branch) => branch.id === branchId);
@@ -90,11 +121,7 @@ export function RecordsView({ records, areas, employees, branches = [], selected
       : recordType === "weekly-review"
         ? t("records.type.weeklyReview")
         : t("records.type.daily");
-  const photoCount = (record: CleaningRecord) => {
-    const taskPhotoCount = record.taskResults?.reduce((sum, result) => sum + (result.photoUrls?.length ?? 0), 0) ?? 0;
-    const recordPhotoCount = record.photoUrls?.length ?? (record.photoUrl ? 1 : 0);
-    return taskPhotoCount || recordPhotoCount;
-  };
+  const photoCount = (record: CleaningRecord) => collectPhotoUrls(record).length;
   const reportSummary = useMemo(
     () => ({
       total: currentRecords.length,
@@ -114,8 +141,135 @@ export function RecordsView({ records, areas, employees, branches = [], selected
     typeFilter !== "all" ? typeLabel(typeFilter) : t("records.allTypes"),
   ];
   const printReport = (nextPeriod: SummaryPeriod) => {
+    const reportRecords = getRecordsForPeriod(nextPeriod);
+    const reportTitle = formatReportTitle(nextPeriod);
+    const summary = {
+      total: reportRecords.length,
+      completed: reportRecords.filter((record) => record.status === "completed").length,
+      incomplete: reportRecords.filter((record) => record.status === "incomplete").length,
+      daily: reportRecords.filter((record) => (record.recordType ?? "daily") === "daily").length,
+      weekly: reportRecords.filter((record) => record.recordType === "weekly").length,
+      photos: reportRecords.reduce((sum, record) => sum + photoCount(record), 0),
+    };
+    const rows = reportRecords.map((record) => {
+      const photoUrls = collectPhotoUrls(record);
+      return {
+        branch: branches.length ? findBranch(record.branchId ?? branches[0]?.id)?.name ?? t("common.noValue") : "",
+        area: t(findArea(record.areaId)?.nameKey ?? record.areaId),
+        employee: findEmployee(record.employeeId)?.name ?? record.employeeId,
+        type: typeLabel(record.recordType),
+        status: t(`states.${record.status}`),
+        comment: record.comment || t("common.noValue"),
+        failedTask: findTaskQuestion(record) || t("common.noValue"),
+        photoText: photoUrls.length ? `${photoUrls.length} ${t("records.photo")}` : t("records.noPhoto"),
+        photoUrls,
+        date: new Date(record.createdAt).toLocaleString(locale),
+      };
+    });
+    const branchHeader = branches.length ? `<th>${escapeHtml(t("fields.branch"))}</th>` : "";
+    const bodyRows = rows.length
+      ? rows
+          .map((row) => {
+            const photoLinks = row.photoUrls.length
+              ? `<br>${row.photoUrls.map((url, index) => `<a href="${escapeHtml(url)}">${escapeHtml(`${t("records.photo")} ${index + 1}`)}</a>`).join(" · ")}`
+              : "";
+            return `
+              <tr>
+                ${branches.length ? `<td>${escapeHtml(row.branch)}</td>` : ""}
+                <td>${escapeHtml(row.area)}</td>
+                <td>${escapeHtml(row.employee)}</td>
+                <td>${escapeHtml(row.type)}</td>
+                <td>${escapeHtml(row.status)}</td>
+                <td>${escapeHtml(row.comment)}</td>
+                <td>${escapeHtml(row.failedTask)}</td>
+                <td>${escapeHtml(row.photoText)}${photoLinks}</td>
+                <td>${escapeHtml(row.date)}</td>
+              </tr>
+            `;
+          })
+          .join("")
+      : `<tr><td colspan="${branches.length ? 9 : 8}" class="empty-cell">${escapeHtml(t("records.empty"))}</td></tr>`;
+    const reportHtml = `<!doctype html>
+      <html lang="${escapeHtml(language)}">
+        <head>
+          <meta charset="utf-8" />
+          <title>${escapeHtml(t("records.reportTitle"))} - ${escapeHtml(reportTitle)}</title>
+          <style>
+            @page { size: A4 landscape; margin: 10mm; }
+            * { box-sizing: border-box; }
+            body { margin: 0; color: #20231b; background: #fff; font-family: Inter, Arial, sans-serif; }
+            .report-shell { padding: 6px; }
+            .report-brand { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 14px; border-bottom: 2px solid #6b744d; padding-bottom: 10px; }
+            .report-brand p, .report-brand h1, .report-brand span { margin: 0; }
+            .report-brand p { color: #6b744d; font-size: 10px; font-weight: 900; text-transform: uppercase; }
+            .report-brand h1 { margin-top: 3px; font-family: Georgia, serif; font-size: 24px; }
+            .report-brand span { color: #4f5739; font-family: Georgia, serif; font-style: italic; }
+            .print-date { color: #6d7164; font-size: 10px; font-weight: 700; text-align: right; }
+            .filters { margin: 0 0 10px; color: #4d5344; font-size: 10px; font-weight: 700; }
+            .summary-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 12px; }
+            .metric { min-height: 50px; padding: 7px; background: #f7f8f2; border: 1px solid #d7dccd; border-radius: 8px; }
+            .metric strong { display: block; color: #20231b; font-size: 18px; line-height: 1; }
+            .metric span { color: #6d7164; font-size: 9px; font-weight: 800; }
+            table { width: 100%; border-collapse: collapse; font-size: 8.4px; }
+            thead { display: table-header-group; }
+            th { color: #20231b; background: #eef2e4; }
+            th, td { padding: 5px 4px; border: 1px solid #d7dccd; text-align: left; vertical-align: top; word-break: break-word; }
+            td a { color: #4f5739; font-weight: 800; text-decoration: none; }
+            tr { break-inside: avoid; }
+            .empty-cell { padding: 18px; text-align: center; color: #6d7164; font-weight: 800; }
+          </style>
+        </head>
+        <body>
+          <main class="report-shell">
+            <section class="report-brand">
+              <div>
+                <p>${escapeHtml(t("records.reportTitle"))}</p>
+                <h1>Tuscolo Cleaning Tracker</h1>
+                <span>Sotto il cielo d’Italia</span>
+              </div>
+              <div class="print-date">${escapeHtml(t("records.printedAt"))}: ${escapeHtml(new Date().toLocaleString(locale))}</div>
+            </section>
+            <p class="filters">${escapeHtml(reportTitle)} · ${escapeHtml(t("records.activeFilters"))}: ${escapeHtml(activeFilterLabels.join(" · "))}</p>
+            <section class="summary-grid">
+              <div class="metric"><strong>${summary.total}</strong><span>${escapeHtml(t("records.totalRecords"))}</span></div>
+              <div class="metric"><strong>${summary.completed}</strong><span>${escapeHtml(t("records.completedRecords"))}</span></div>
+              <div class="metric"><strong>${summary.incomplete}</strong><span>${escapeHtml(t("records.incompleteRecords"))}</span></div>
+              <div class="metric"><strong>${summary.daily}</strong><span>${escapeHtml(t("records.dailyRecords"))}</span></div>
+              <div class="metric"><strong>${summary.weekly}</strong><span>${escapeHtml(t("records.weeklyRecords"))}</span></div>
+              <div class="metric"><strong>${summary.photos}</strong><span>${escapeHtml(t("records.photosUploaded"))}</span></div>
+            </section>
+            <table>
+              <thead>
+                <tr>
+                  ${branchHeader}
+                  <th>${escapeHtml(t("fields.area"))}</th>
+                  <th>${escapeHtml(t("fields.employee"))}</th>
+                  <th>${escapeHtml(t("records.type"))}</th>
+                  <th>${escapeHtml(t("fields.status"))}</th>
+                  <th>${escapeHtml(t("fields.comment"))}</th>
+                  <th>${escapeHtml(t("records.failedTask"))}</th>
+                  <th>${escapeHtml(t("records.photo"))}</th>
+                  <th>${escapeHtml(t("fields.date"))}</th>
+                </tr>
+              </thead>
+              <tbody>${bodyRows}</tbody>
+            </table>
+          </main>
+        </body>
+      </html>`;
+    const printWindow = window.open("", "_blank", "width=1200,height=800");
+    if (!printWindow) {
+      flushSync(() => setPeriod(nextPeriod));
+      window.print();
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(reportHtml);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
     flushSync(() => setPeriod(nextPeriod));
-    window.requestAnimationFrame(() => window.print());
   };
   const findTaskQuestion = (record: CleaningRecord) => {
     if (record.failedTaskReasons?.length) {
