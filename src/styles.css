@@ -3322,10 +3322,36 @@ input:focus {
 }
 
 .app-theme-dark .secondary-action,
-.app-theme-dark .icon-action {
+.app-theme-dark .icon-action,
+.app-theme-dark .admin-secondary-button {
   color: #f3f4ec;
   background: #151c12;
   border-color: rgba(226, 229, 218, 0.16);
+}
+
+.app-theme-dark .admin-link-button {
+  color: #fff;
+  background: #6b744d;
+  border-color: #7f895c;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.app-theme-dark .admin-link-button:hover {
+  background: #7b8559;
+  border-color: #95a06d;
+}
+
+.app-theme-dark .admin-link-button:disabled {
+  color: rgba(243, 244, 236, 0.48);
+  background: #20291b;
+  border-color: rgba(226, 229, 218, 0.12);
+  box-shadow: none;
+}
+
+.app-theme-dark .admin-link-button.danger-link {
+  color: #ffb4a9;
+  background: rgba(169, 63, 63, 0.14);
+  border-color: rgba(255, 180, 169, 0.22);
 }
 
 .app-theme-dark .no-button {
@@ -3510,6 +3536,21 @@ input:focus {
   background: #eef2e4;
   border-color: rgba(107, 116, 77, 0.38);
   box-shadow: inset 4px 0 0 var(--color-secondary);
+}
+
+.app-theme-dark .task-area-list button.active {
+  color: #fff;
+  background: #6b744d;
+  border-color: #8d9867;
+  box-shadow: inset 4px 0 0 #dce5c6, 0 10px 22px rgba(0, 0, 0, 0.16);
+}
+
+.app-theme-dark .task-area-list button.active span {
+  color: #fff;
+}
+
+.app-theme-dark .task-area-list button.active small {
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .task-area-list span {
