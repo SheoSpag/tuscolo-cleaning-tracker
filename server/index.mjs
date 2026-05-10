@@ -15,6 +15,7 @@ const resendApiKey = process.env.RESEND_API_KEY;
 const emailFrom = process.env.EMAIL_FROM || "Tuscolo <onboarding@resend.dev>";
 const sessionSecret = process.env.SESSION_SECRET || "dev-only-change-me";
 const demoDataEnabled = process.env.TUSCOLO_DEMO_DATA !== "false";
+const demoDataVersion = 2;
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 40 * 1024 * 1024);
 const maxRecordPhotoBytes = Number(process.env.MAX_RECORD_PHOTO_BYTES || 32 * 1024 * 1024);
 const supportedLanguages = new Set(["es", "de", "en", "it"]);
@@ -55,6 +56,67 @@ const defaultBranches = [
   },
 ];
 
+const demoBranchTeams = {
+  "branch-frankenbad": [
+    ["ana-molina", "Ana Molina", "es", ["bar", "service"]],
+    ["giulia-conti", "Giulia Conti", "it", ["kitchen-pasta"]],
+    ["niklas-weber", "Niklas Weber", "de", ["spule", "service"]],
+    ["mateo-rossi", "Mateo Rossi", "it", ["kitchen-pizza"]],
+    ["lara-schmidt", "Lara Schmidt", "de", ["kitchen-salad"]],
+    ["sofia-navarro", "Sofia Navarro", "es", ["bar", "spule"]],
+    ["jonas-klein", "Jonas Klein", "de", ["kitchen-pasta", "kitchen-pizza"]],
+  ],
+  "branch-muensterblick": [
+    ["maria-keller", "Maria Keller", "de", ["bar", "service"]],
+    ["alessio-ferri", "Alessio Ferri", "it", ["kitchen-pizza"]],
+    ["clara-hansen", "Clara Hansen", "de", ["kitchen-salad"]],
+    ["diego-ramos", "Diego Ramos", "es", ["spule"]],
+    ["emilia-greco", "Emilia Greco", "it", ["kitchen-pasta"]],
+    ["tom-becker", "Tom Becker", "de", ["service"]],
+    ["valentina-soler", "Valentina Soler", "es", ["bar", "kitchen-salad"]],
+  ],
+  "branch-siegburg": [
+    ["amin-yilmaz", "Amin Yilmaz", "de", ["spule", "kitchen-pizza"]],
+    ["francesca-lupo", "Francesca Lupo", "it", ["bar"]],
+    ["paula-martin", "Paula Martin", "es", ["service"]],
+    ["ben-hoffmann", "Ben Hoffmann", "de", ["kitchen-pizza"]],
+    ["noemi-ricci", "Noemi Ricci", "it", ["spule"]],
+    ["marco-santos", "Marco Santos", "es", ["bar", "service"]],
+    ["julia-wagner", "Julia Wagner", "de", ["kitchen-pizza", "spule"]],
+  ],
+  "branch-colonia": [
+    ["sofia-bianchi", "Sofia Bianchi", "es", ["kitchen-salad", "service"]],
+    ["luca-romano", "Luca Romano", "it", ["kitchen-pasta", "kitchen-pizza"]],
+    ["mia-schulz", "Mia Schulz", "de", ["bar"]],
+    ["andrea-moretti", "Andrea Moretti", "it", ["spule"]],
+    ["carmen-ortega", "Carmen Ortega", "es", ["service", "bar"]],
+    ["felix-bauer", "Felix Bauer", "de", ["kitchen-pasta"]],
+    ["chiara-fabbri", "Chiara Fabbri", "it", ["kitchen-salad"]],
+  ],
+  "branch-rheinbach": [
+    ["elena-fischer", "Elena Fischer", "en", ["bar", "kitchen-pasta", "service"]],
+    ["roberto-villa", "Roberto Villa", "it", ["kitchen-pasta"]],
+    ["marina-lopez", "Marina Lopez", "es", ["service"]],
+    ["tim-schneider", "Tim Schneider", "de", ["spule"]],
+    ["nina-hartmann", "Nina Hartmann", "de", ["bar"]],
+    ["fabio-rinaldi", "Fabio Rinaldi", "it", ["kitchen-pasta", "service"]],
+    ["laura-ibarra", "Laura Ibarra", "es", ["spule", "bar"]],
+  ],
+};
+
+const demoEmployeeUsers = Object.entries(demoBranchTeams).flatMap(([branchId, team]) =>
+  team.map(([slug, name, language, sectorIds]) => ({
+    id: `demo-${slug}`,
+    name,
+    email: `${slug}@tuscolo-demo.de`,
+    password: "demo1234",
+    language,
+    role: "employee",
+    assignedBranchIds: [branchId],
+    assignedSectorIds: sectorIds,
+  })),
+);
+
 const defaultUsers = [
   {
     id: "admin-1",
@@ -76,56 +138,7 @@ const defaultUsers = [
     assignedBranchIds: ["branch-frankenbad"],
     assignedSectorIds: ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule"],
   },
-  {
-    id: "demo-employee-luca",
-    name: "Luca Romano",
-    email: "luca.romano@tuscolo.de",
-    password: "demo1234",
-    language: "it",
-    role: "employee",
-    assignedBranchIds: ["branch-frankenbad", "branch-colonia"],
-    assignedSectorIds: ["kitchen-pasta", "kitchen-pizza"],
-  },
-  {
-    id: "demo-employee-maria",
-    name: "Maria Keller",
-    email: "maria.keller@tuscolo.de",
-    password: "demo1234",
-    language: "de",
-    role: "employee",
-    assignedBranchIds: ["branch-muensterblick"],
-    assignedSectorIds: ["bar", "service"],
-  },
-  {
-    id: "demo-employee-sofia",
-    name: "Sofia Bianchi",
-    email: "sofia.bianchi@tuscolo.de",
-    password: "demo1234",
-    language: "es",
-    role: "employee",
-    assignedBranchIds: ["branch-colonia"],
-    assignedSectorIds: ["kitchen-salad", "service"],
-  },
-  {
-    id: "demo-employee-amin",
-    name: "Amin Yilmaz",
-    email: "amin.yilmaz@tuscolo.de",
-    password: "demo1234",
-    language: "de",
-    role: "employee",
-    assignedBranchIds: ["branch-siegburg"],
-    assignedSectorIds: ["spule", "kitchen-pizza"],
-  },
-  {
-    id: "demo-employee-elena",
-    name: "Elena Fischer",
-    email: "elena.fischer@tuscolo.de",
-    password: "demo1234",
-    language: "en",
-    role: "employee",
-    assignedBranchIds: ["branch-rheinbach"],
-    assignedSectorIds: ["bar", "kitchen-pasta", "service"],
-  },
+  ...demoEmployeeUsers,
 ];
 const retiredSeedUserIds = new Set(["emp-1", "emp-2", "emp-3", "emp-4"]);
 
@@ -360,9 +373,9 @@ function publicUser(user) {
   return safeUser;
 }
 
-function monthDate(monthsBack, dayOffset = 1, hour = 10) {
+function demoDate(daysBack, hour = 10) {
   const date = new Date();
-  date.setMonth(date.getMonth() - monthsBack, dayOffset);
+  date.setDate(date.getDate() - daysBack);
   date.setHours(hour, 15, 0, 0);
   return date;
 }
@@ -371,68 +384,115 @@ function demoPhotoUrl(seed) {
   return `https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=900&q=72&sig=${encodeURIComponent(seed)}`;
 }
 
+function taskSectorId(areaId) {
+  const map = {
+    bar: "bar",
+    service: "service",
+    surroundings: "service",
+    "pasta-kitchen": "kitchen-pasta",
+    "prep-kitchen": "kitchen-pasta",
+    "cold-kitchen": "kitchen-salad",
+    pizza: "kitchen-pizza",
+    "general-kitchen": "kitchen-pizza",
+    storage: "kitchen-pasta",
+    dishwashing: "spule",
+  };
+  return map[areaId] ?? areaId;
+}
+
+function pseudoScore(seed) {
+  let hash = 0;
+  for (const char of String(seed)) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 100000;
+  }
+  return (hash % 1000) / 1000;
+}
+
 function createDemoRecords(branches, users, tasks) {
   const employees = users.filter((user) => user.role === "employee" && user.assignedBranchIds?.length);
-  const improvementRates = [0.58, 0.64, 0.71, 0.79, 0.87, 0.94];
   const records = [];
   let sequence = 0;
+  const demoDays = 92;
+  const weeklySpan = 13;
 
-  for (let monthIndex = 5; monthIndex >= 0; monthIndex -= 1) {
-    const rate = improvementRates[5 - monthIndex];
+  for (let daysBack = demoDays; daysBack >= 0; daysBack -= 1) {
+    const progress = (demoDays - daysBack) / demoDays;
+    const rate = 0.58 + progress * 0.35;
+    const dayOfWeek = demoDate(daysBack).getDay();
     for (const branch of branches) {
       const branchEmployees = employees.filter((user) => user.assignedBranchIds?.includes(branch.id));
       const employeePool = branchEmployees.length ? branchEmployees : employees;
       const branchTaskAreaIds = new Set(branch.areaIds ?? []);
-      const dailyTasks = tasks.filter((task) => task.frequency === "daily" && branchTaskAreaIds.has(task.areaId));
-      const weeklyTasks = tasks.filter((task) => task.frequency === "weekly" && branchTaskAreaIds.has(task.areaId));
-      const dailySamples = dailyTasks.slice(0, Math.min(12, dailyTasks.length));
-      const weeklySamples = weeklyTasks.slice(0, Math.min(8, weeklyTasks.length));
+      const dailyTasks = tasks.filter((task) => task.frequency === "daily" && branchTaskAreaIds.has(taskSectorId(task.areaId)));
+      const activeAreaIds = [...new Set(dailyTasks.map((task) => taskSectorId(task.areaId)))];
+      const targetAreaCount = dayOfWeek === 0 ? 3 : activeAreaIds.length;
+      const dayAreas = activeAreaIds.slice(0, targetAreaCount);
 
-      dailySamples.forEach((task, index) => {
-        const employee = employeePool[(index + monthIndex) % employeePool.length];
+      dayAreas.forEach((areaId, index) => {
+        const areaTasks = dailyTasks.filter((task) => taskSectorId(task.areaId) === areaId);
+        const areaEmployeePool = employeePool.filter((user) => user.assignedSectorIds?.includes(areaId));
+        const assignedPool = areaEmployeePool.length ? areaEmployeePool : employeePool;
+        const employee = assignedPool[(index + daysBack + branch.name.length) % assignedPool.length];
         if (!employee) return;
-        const completed = ((index + monthIndex + branch.id.length) % 100) / 100 < rate;
-        const createdAt = monthDate(monthIndex, 2 + index * 2, 9 + (index % 7)).toISOString();
-        const relatedTasks = dailyTasks.filter((candidate) => candidate.areaId === task.areaId).slice(0, 5);
+        const marker = `${branch.id}-${areaId}-${daysBack}-${index}`;
+        const completed = pseudoScore(marker) < rate;
+        const createdAt = demoDate(daysBack, 9 + ((index + branch.name.length) % 8)).toISOString();
+        const relatedTasks = areaTasks.slice(0, Math.min(7, areaTasks.length));
+        const failedTask = relatedTasks.find((_, taskIndex) => taskIndex === Math.floor(pseudoScore(`${marker}-fail`) * relatedTasks.length)) ?? relatedTasks[0];
         records.push({
-          id: `demo-daily-${branch.id}-${monthIndex}-${sequence++}`,
+          id: `demo-v${demoDataVersion}-daily-${branch.id}-${daysBack}-${areaId}-${sequence++}`,
           employeeId: employee.id,
           branchId: branch.id,
-          areaId: task.areaId,
-          sectorId: task.areaId,
+          areaId,
+          sectorId: areaId,
           recordType: "daily",
           status: completed ? "completed" : "incomplete",
-          failedTaskId: completed ? null : task.id,
-          failedTaskLabel: completed ? null : task.question,
-          failedTaskIds: completed ? [] : [task.id],
-          failedTaskLabels: completed ? [] : [task.question],
-          failedTaskReasons: completed ? [] : [{ taskId: task.id, label: task.question, reason: "Refuerzo planificado en el próximo cierre" }],
+          failedTaskId: completed ? null : failedTask?.id ?? null,
+          failedTaskLabel: completed ? null : failedTask?.question ?? null,
+          failedTaskIds: completed || !failedTask ? [] : [failedTask.id],
+          failedTaskLabels: completed || !failedTask ? [] : [failedTask.question],
+          failedTaskReasons: completed || !failedTask ? [] : [{ taskId: failedTask.id, label: failedTask.question, reason: "Refuerzo planificado en el próximo cierre" }],
           taskResults: relatedTasks.map((candidate, taskIndex) => ({
             taskId: candidate.id,
             label: candidate.question,
-            status: !completed && taskIndex === 0 ? "not_done" : "done",
-            reason: !completed && taskIndex === 0 ? "Pendiente por falta de tiempo operativo" : null,
+            status: !completed && candidate.id === failedTask?.id ? "not_done" : "done",
+            reason: !completed && candidate.id === failedTask?.id ? "Pendiente por falta de tiempo operativo" : null,
             photoUrls: [],
           })),
-          photoUrl: demoPhotoUrl(`${branch.id}-${monthIndex}-${index}-main`),
-          photoUrls: [0, 1, 2].map((photoIndex) => demoPhotoUrl(`${branch.id}-${monthIndex}-${index}-${photoIndex}`)),
+          photoUrl: demoPhotoUrl(`${branch.id}-${daysBack}-${areaId}-${index}-main`),
+          photoUrls: [0, 1, 2, 3].slice(0, completed ? 3 : 2).map((photoIndex) => demoPhotoUrl(`${branch.id}-${daysBack}-${areaId}-${index}-${photoIndex}`)),
           comment: completed ? "Control demo completado dentro del estándar." : "Registro demo marcado para seguimiento.",
           createdAt,
         });
       });
+    }
+  }
+
+  for (let weekBack = weeklySpan; weekBack >= 0; weekBack -= 1) {
+    const progress = (weeklySpan - weekBack) / weeklySpan;
+    const rate = 0.52 + progress * 0.4;
+    for (const branch of branches) {
+      const branchEmployees = employees.filter((user) => user.assignedBranchIds?.includes(branch.id));
+      const employeePool = branchEmployees.length ? branchEmployees : employees;
+      const branchTaskAreaIds = new Set(branch.areaIds ?? []);
+      const weeklyTasks = tasks.filter((task) => task.frequency === "weekly" && branchTaskAreaIds.has(taskSectorId(task.areaId)));
+      const weeklySamples = weeklyTasks.slice(0, Math.min(18, weeklyTasks.length));
 
       weeklySamples.forEach((task, index) => {
-        const employee = employeePool[(index + 2 + monthIndex) % employeePool.length];
+        const areaId = taskSectorId(task.areaId);
+        const areaEmployeePool = employeePool.filter((user) => user.assignedSectorIds?.includes(areaId));
+        const assignedPool = areaEmployeePool.length ? areaEmployeePool : employeePool;
+        const employee = assignedPool[(index + 2 + weekBack + branch.name.length) % assignedPool.length];
         if (!employee) return;
-        const completed = ((index * 7 + monthIndex + branch.name.length) % 100) / 100 < rate;
-        if (!completed && monthIndex === 0 && index > 2) return;
-        const createdAt = monthDate(monthIndex, 5 + index * 3, 12 + (index % 5)).toISOString();
+        const completed = pseudoScore(`${branch.id}-${task.id}-${weekBack}`) < (weekBack === 0 ? Math.min(rate, 0.68) : rate);
+        if (!completed) return;
+        const createdAt = demoDate(weekBack * 7 + 1 + (index % 5), 12 + (index % 5)).toISOString();
         records.push({
-          id: `demo-weekly-${branch.id}-${monthIndex}-${sequence++}`,
+          id: `demo-v${demoDataVersion}-weekly-${branch.id}-${weekBack}-${sequence++}`,
           employeeId: employee.id,
           branchId: branch.id,
-          areaId: task.areaId,
-          sectorId: task.areaId,
+          areaId,
+          sectorId: areaId,
           recordType: "weekly",
           status: "completed",
           failedTaskId: null,
@@ -445,11 +505,11 @@ function createDemoRecords(branches, users, tasks) {
               taskId: task.id,
               label: task.question,
               status: "done",
-              photoUrls: [0, 1].map((photoIndex) => demoPhotoUrl(`weekly-${branch.id}-${monthIndex}-${index}-${photoIndex}`)),
+              photoUrls: [0, 1, 2].map((photoIndex) => demoPhotoUrl(`weekly-${branch.id}-${weekBack}-${index}-${photoIndex}`)),
             },
           ],
-          photoUrl: demoPhotoUrl(`weekly-${branch.id}-${monthIndex}-${index}-main`),
-          photoUrls: [0, 1].map((photoIndex) => demoPhotoUrl(`weekly-summary-${branch.id}-${monthIndex}-${index}-${photoIndex}`)),
+          photoUrl: demoPhotoUrl(`weekly-${branch.id}-${weekBack}-${index}-main`),
+          photoUrls: [0, 1, 2].map((photoIndex) => demoPhotoUrl(`weekly-summary-${branch.id}-${weekBack}-${index}-${photoIndex}`)),
           comment: "Tarea semanal demo registrada para análisis de progreso.",
           createdAt,
         });
@@ -515,14 +575,16 @@ function normalizeDb(db) {
 
   const tasks = db.tasks ?? [];
   const storedRecords = Array.isArray(db.records) ? db.records : [];
-  const shouldAddDemoRecords = demoDataEnabled && tasks.length && !storedRecords.some((record) => String(record.id).startsWith("demo-"));
+  const userRecords = storedRecords.filter((record) => !String(record.id).startsWith("demo-"));
+  const shouldRegenerateDemoRecords = demoDataEnabled && tasks.length && db.demoDataVersion !== demoDataVersion;
 
   return {
     ...db,
+    demoDataVersion: demoDataEnabled ? demoDataVersion : db.demoDataVersion,
     branches,
     users,
     tasks,
-    records: shouldAddDemoRecords ? [...createDemoRecords(branches, users, tasks), ...storedRecords] : storedRecords,
+    records: shouldRegenerateDemoRecords ? [...createDemoRecords(branches, users, tasks), ...userRecords] : storedRecords,
   };
 }
 
@@ -530,6 +592,7 @@ async function createInitialDb() {
   const users = defaultUsers.map(({ password, ...user }) => ({ ...user, passwordHash: hashPassword(password) }));
   const tasks = await loadSeedTasks();
   return {
+    demoDataVersion: demoDataEnabled ? demoDataVersion : 0,
     users,
     branches: defaultBranches,
     tasks,

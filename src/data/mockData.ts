@@ -30,6 +30,67 @@ export const defaultBranches: Branch[] = [
   },
 ];
 
+const demoBranchTeams: Record<string, Array<[string, string, AppUser["language"], string[]]>> = {
+  "branch-frankenbad": [
+    ["ana-molina", "Ana Molina", "es", ["bar", "service"]],
+    ["giulia-conti", "Giulia Conti", "it", ["kitchen-pasta"]],
+    ["niklas-weber", "Niklas Weber", "de", ["spule", "service"]],
+    ["mateo-rossi", "Mateo Rossi", "it", ["kitchen-pizza"]],
+    ["lara-schmidt", "Lara Schmidt", "de", ["kitchen-salad"]],
+    ["sofia-navarro", "Sofia Navarro", "es", ["bar", "spule"]],
+    ["jonas-klein", "Jonas Klein", "de", ["kitchen-pasta", "kitchen-pizza"]],
+  ],
+  "branch-muensterblick": [
+    ["maria-keller", "Maria Keller", "de", ["bar", "service"]],
+    ["alessio-ferri", "Alessio Ferri", "it", ["kitchen-pizza"]],
+    ["clara-hansen", "Clara Hansen", "de", ["kitchen-salad"]],
+    ["diego-ramos", "Diego Ramos", "es", ["spule"]],
+    ["emilia-greco", "Emilia Greco", "it", ["kitchen-pasta"]],
+    ["tom-becker", "Tom Becker", "de", ["service"]],
+    ["valentina-soler", "Valentina Soler", "es", ["bar", "kitchen-salad"]],
+  ],
+  "branch-siegburg": [
+    ["amin-yilmaz", "Amin Yilmaz", "de", ["spule", "kitchen-pizza"]],
+    ["francesca-lupo", "Francesca Lupo", "it", ["bar"]],
+    ["paula-martin", "Paula Martin", "es", ["service"]],
+    ["ben-hoffmann", "Ben Hoffmann", "de", ["kitchen-pizza"]],
+    ["noemi-ricci", "Noemi Ricci", "it", ["spule"]],
+    ["marco-santos", "Marco Santos", "es", ["bar", "service"]],
+    ["julia-wagner", "Julia Wagner", "de", ["kitchen-pizza", "spule"]],
+  ],
+  "branch-colonia": [
+    ["sofia-bianchi", "Sofia Bianchi", "es", ["kitchen-salad", "service"]],
+    ["luca-romano", "Luca Romano", "it", ["kitchen-pasta", "kitchen-pizza"]],
+    ["mia-schulz", "Mia Schulz", "de", ["bar"]],
+    ["andrea-moretti", "Andrea Moretti", "it", ["spule"]],
+    ["carmen-ortega", "Carmen Ortega", "es", ["service", "bar"]],
+    ["felix-bauer", "Felix Bauer", "de", ["kitchen-pasta"]],
+    ["chiara-fabbri", "Chiara Fabbri", "it", ["kitchen-salad"]],
+  ],
+  "branch-rheinbach": [
+    ["elena-fischer", "Elena Fischer", "en", ["bar", "kitchen-pasta", "service"]],
+    ["roberto-villa", "Roberto Villa", "it", ["kitchen-pasta"]],
+    ["marina-lopez", "Marina Lopez", "es", ["service"]],
+    ["tim-schneider", "Tim Schneider", "de", ["spule"]],
+    ["nina-hartmann", "Nina Hartmann", "de", ["bar"]],
+    ["fabio-rinaldi", "Fabio Rinaldi", "it", ["kitchen-pasta", "service"]],
+    ["laura-ibarra", "Laura Ibarra", "es", ["spule", "bar"]],
+  ],
+};
+
+const demoEmployeeUsers: AppUser[] = Object.entries(demoBranchTeams).flatMap(([branchId, team]) =>
+  team.map(([slug, name, language, sectorIds]) => ({
+    id: `demo-${slug}`,
+    name,
+    email: `${slug}@tuscolo-demo.de`,
+    password: "demo1234",
+    language,
+    role: "employee",
+    assignedBranchIds: [branchId],
+    assignedSectorIds: sectorIds,
+  })),
+);
+
 export const defaultUsers: AppUser[] = [
   {
     id: "admin-1",
@@ -51,56 +112,7 @@ export const defaultUsers: AppUser[] = [
     assignedBranchIds: ["branch-frankenbad"],
     assignedSectorIds: ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule"],
   },
-  {
-    id: "demo-employee-luca",
-    name: "Luca Romano",
-    email: "luca.romano@tuscolo.de",
-    password: "demo1234",
-    language: "it",
-    role: "employee",
-    assignedBranchIds: ["branch-frankenbad", "branch-colonia"],
-    assignedSectorIds: ["kitchen-pasta", "kitchen-pizza"],
-  },
-  {
-    id: "demo-employee-maria",
-    name: "Maria Keller",
-    email: "maria.keller@tuscolo.de",
-    password: "demo1234",
-    language: "de",
-    role: "employee",
-    assignedBranchIds: ["branch-muensterblick"],
-    assignedSectorIds: ["bar", "service"],
-  },
-  {
-    id: "demo-employee-sofia",
-    name: "Sofia Bianchi",
-    email: "sofia.bianchi@tuscolo.de",
-    password: "demo1234",
-    language: "es",
-    role: "employee",
-    assignedBranchIds: ["branch-colonia"],
-    assignedSectorIds: ["kitchen-salad", "service"],
-  },
-  {
-    id: "demo-employee-amin",
-    name: "Amin Yilmaz",
-    email: "amin.yilmaz@tuscolo.de",
-    password: "demo1234",
-    language: "de",
-    role: "employee",
-    assignedBranchIds: ["branch-siegburg"],
-    assignedSectorIds: ["spule", "kitchen-pizza"],
-  },
-  {
-    id: "demo-employee-elena",
-    name: "Elena Fischer",
-    email: "elena.fischer@tuscolo.de",
-    password: "demo1234",
-    language: "en",
-    role: "employee",
-    assignedBranchIds: ["branch-rheinbach"],
-    assignedSectorIds: ["bar", "kitchen-pasta", "service"],
-  },
+  ...demoEmployeeUsers,
 ];
 
 export const employees = defaultUsers;
