@@ -296,6 +296,43 @@ function App() {
     }
   };
 
+  const startPasswordReset = async (email: string) => {
+    try {
+      const result = await api.startPasswordReset(email);
+      setError("");
+      return { ok: true, emailSent: result.emailSent, devCode: result.devCode };
+    } catch {
+      const message = translate(language, "errors.requiredFields");
+      setError(message);
+      return { ok: false, message };
+    }
+  };
+
+  const verifyPasswordReset = async (email: string, code: string) => {
+    try {
+      await api.verifyPasswordReset(email, code);
+      setError("");
+      return true;
+    } catch {
+      setError(translate(language, "errors.invalidCode"));
+      return false;
+    }
+  };
+
+  const finishPasswordReset = async (email: string, code: string, password: string) => {
+    try {
+      const result = await api.finishPasswordReset(email, code, password);
+      setAuthToken(result.token);
+      applyRemoteState(await api.state());
+      setError("");
+      return true;
+    } catch (requestError) {
+      const message = requestError instanceof Error && requestError.message === "Weak password" ? translate(language, "errors.weakPassword") : translate(language, "errors.invalidCode");
+      setError(message);
+      return false;
+    }
+  };
+
   const updateUsers = (nextUsers: AppUser[]) => {
     const fallbackBranchId = branches[0]?.id ?? defaultBranches[0].id;
     const branchIds = new Set(branches.map((branch) => branch.id));
@@ -451,7 +488,18 @@ function App() {
     <I18nContext.Provider value={i18nValue}>
       <main className={`${isAdmin ? "admin-root" : currentUser ? "app-shell" : "app-shell auth-shell"} app-theme-${theme}`}>
         {!isAdmin ? <Header compact={!currentUser} /> : null}
-        {!currentUser ? <AuthView users={users} onLogin={login} onStartRegister={startRegister} onVerifyRegister={verifyRegister} error={error} /> : null}
+        {!currentUser ? (
+          <AuthView
+            users={users}
+            onLogin={login}
+            onStartRegister={startRegister}
+            onVerifyRegister={verifyRegister}
+            onStartPasswordReset={startPasswordReset}
+            onVerifyPasswordReset={verifyPasswordReset}
+            onFinishPasswordReset={finishPasswordReset}
+            error={error}
+          />
+        ) : null}
         {currentUser && !isAdmin ? (
           <nav className="app-nav" aria-label={translate(language, "nav.aria")}>
             <button className={screen === "home" ? "active" : ""} type="button" onClick={() => goToScreen("home")}>

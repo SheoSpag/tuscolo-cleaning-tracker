@@ -453,6 +453,39 @@ input:focus {
   cursor: not-allowed;
 }
 
+.auth-link-button,
+.auth-back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  color: var(--color-secondary-dark);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  font-weight: 850;
+}
+
+.auth-link-button {
+  margin-top: -4px;
+  color: var(--color-secondary);
+}
+
+.auth-back-button {
+  order: 20;
+  color: var(--color-secondary-dark);
+  background: var(--color-soft);
+  border: 1px solid var(--color-line);
+}
+
+.auth-flow-card {
+  padding: 14px;
+  background: rgba(247, 248, 242, 0.62);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+}
+
 .home-grid {
   display: grid;
   gap: 18px;
@@ -3065,6 +3098,52 @@ input:focus {
   background:
     radial-gradient(circle at top right, rgba(126, 139, 91, 0.2), transparent 34rem),
     #151c12;
+}
+
+.app-theme-dark .auth-panel,
+.app-theme-dark .auth-flow-card,
+.app-theme-dark .password-field,
+.app-theme-dark .password-field button,
+.app-theme-dark .auth-tabs button,
+.app-theme-dark .auth-back-button,
+.app-theme-dark .notice-text,
+.app-theme-dark .resend-code-row button {
+  color: #f3f4ec;
+  background: rgba(32, 41, 27, 0.94);
+  border-color: rgba(226, 229, 218, 0.16);
+}
+
+.app-theme-dark .auth-panel {
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.38);
+}
+
+.app-theme-dark .auth-panel-heading h2,
+.app-theme-dark .verification-card h2 {
+  color: #f8f8f1;
+}
+
+.app-theme-dark .auth-panel-heading p,
+.app-theme-dark .verification-card p,
+.app-theme-dark .resend-code-row span {
+  color: #bbc2aa;
+}
+
+.app-theme-dark .auth-link-button {
+  color: #dce5c6;
+}
+
+.app-theme-dark .password-field input,
+.app-theme-dark .auth-panel input,
+.app-theme-dark .auth-panel select {
+  color: #f3f4ec;
+  background: #151c12;
+  border-color: rgba(226, 229, 218, 0.16);
+}
+
+.app-theme-dark .auth-tabs button.active {
+  color: white;
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
 }
 
 .app-theme-dark .admin-content-header,

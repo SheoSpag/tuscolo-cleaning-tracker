@@ -58,6 +58,21 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email, code }),
     }),
+  startPasswordReset: (email: string) =>
+    request<{ ok: true; emailSent?: boolean; devCode?: string }>("/api/auth/password/start", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  verifyPasswordReset: (email: string, code: string) =>
+    request<{ ok: true }>("/api/auth/password/verify", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    }),
+  finishPasswordReset: (email: string, code: string, password: string) =>
+    request<{ user: AppUser; token: string }>("/api/auth/password/reset", {
+      method: "POST",
+      body: JSON.stringify({ email, code, password }),
+    }),
   saveTasks: (tasks: CleaningTask[]) =>
     request<{ tasks: CleaningTask[] }>("/api/tasks", {
       method: "PUT",

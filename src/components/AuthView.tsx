@@ -1,4 +1,4 @@
-import { CheckCircle2, Eye, EyeOff, LogIn, RotateCw, UserPlus } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound, LogIn, Mail, RotateCw, ShieldCheck, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { AppUser, Language } from "../types";
 import { useI18n } from "../i18n/I18nContext";
@@ -9,16 +9,22 @@ type AuthViewProps = {
   onLogin: (email: string, password: string) => Promise<boolean>;
   onStartRegister: (input: { name: string; email: string; password: string; language: Language }) => Promise<{ ok: boolean; emailSent?: boolean; devCode?: string; message?: string }>;
   onVerifyRegister: (email: string, code: string) => Promise<boolean>;
+  onStartPasswordReset: (email: string) => Promise<{ ok: boolean; emailSent?: boolean; devCode?: string; message?: string }>;
+  onVerifyPasswordReset: (email: string, code: string) => Promise<boolean>;
+  onFinishPasswordReset: (email: string, code: string, password: string) => Promise<boolean>;
   error?: string;
 };
 
 const languages: Language[] = ["es", "de", "en", "it"];
 const resendDelaySeconds = 30;
+type AuthMode = "login" | "register" | "forgot";
+type ForgotStep = "request" | "code" | "password";
 
-export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, error }: AuthViewProps) {
+export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, onStartPasswordReset, onVerifyPasswordReset, onFinishPasswordReset, error }: AuthViewProps) {
   const { t } = useI18n();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<AuthMode>("login");
   const [registerStep, setRegisterStep] = useState<"form" | "verify">("form");
+  const [forgotStep, setForgotStep] = useState<ForgotStep>("request");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,7 +33,12 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [sentCode, setSentCode] = useState("");
+  const [sentResetCode, setSentResetCode] = useState("");
   const [confirmationCode, setConfirmationCode] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [confirmResetPassword, setConfirmResetPassword] = useState("");
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const [pendingUser, setPendingUser] = useState<AppUser | null>(null);
   const [resendSeconds, setResendSeconds] = useState(0);
   const [localError, setLocalError] = useState("");
@@ -55,13 +66,24 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
     setResendSeconds(0);
   };
 
-  const switchMode = (nextMode: "login" | "register") => {
+  const resetForgotState = () => {
+    setForgotStep("request");
+    setSentResetCode("");
+    setResetCode("");
+    setResetPassword("");
+    setConfirmResetPassword("");
+    setResendSeconds(0);
+  };
+
+  const switchMode = (nextMode: AuthMode) => {
     setMode(nextMode);
     setLocalError("");
     setNotice("");
     resetRegisterState();
-    setEmail("");
+    resetForgotState();
+    if (nextMode !== "forgot") setEmail("");
     setPassword("");
+    setConfirmPassword("");
   };
 
   const validateRegisterForm = () => {
@@ -160,11 +182,90 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
     });
   };
 
+  const startResetRequest = async () => {
+    setLocalError("");
+    if (!email.trim()) {
+      setLocalError(t("errors.requiredFields"));
+      return;
+    }
+
+    const result = await onStartPasswordReset(email.trim());
+    if (!result.ok) {
+      setLocalError(result.message ?? t("errors.requiredFields"));
+      return;
+    }
+
+    setSentResetCode(result.devCode ?? "");
+    setResetCode("");
+    setResendSeconds(resendDelaySeconds);
+    setNotice(result.devCode && !result.emailSent ? `${t("auth.resetCodeSent")} ${email.trim()}. ${t("auth.demoCode")}: ${result.devCode}` : `${t("auth.resetCodeSent")} ${email.trim()}.`);
+    setForgotStep("code");
+  };
+
+  const verifyResetCode = async () => {
+    setLocalError("");
+    if (!resetCode.trim()) {
+      setLocalError(t("errors.invalidCode"));
+      return;
+    }
+    if (sentResetCode && resetCode.trim() !== sentResetCode) {
+      setLocalError(t("errors.invalidCode"));
+      return;
+    }
+
+    const ok = await onVerifyPasswordReset(email.trim(), resetCode.trim());
+    if (ok) {
+      setForgotStep("password");
+      setNotice(t("auth.emailConfirmed"));
+      return;
+    }
+    setLocalError(t("errors.invalidCode"));
+  };
+
+  const finishReset = async () => {
+    setLocalError("");
+    if (resetPassword.length <= 6) {
+      setLocalError(t("errors.weakPassword"));
+      return;
+    }
+    if (resetPassword !== confirmResetPassword) {
+      setLocalError(t("errors.passwordMismatch"));
+      return;
+    }
+
+    const ok = await onFinishPasswordReset(email.trim(), resetCode.trim(), resetPassword);
+    if (!ok) setLocalError(t("errors.invalidCode"));
+  };
+
+  const resendResetCode = () => {
+    if (resendSeconds > 0 || !email.trim()) return;
+    void onStartPasswordReset(email.trim()).then((result) => {
+      if (!result.ok) return;
+      setSentResetCode(result.devCode ?? "");
+      setResetCode("");
+      setResendSeconds(resendDelaySeconds);
+      setNotice(result.devCode && !result.emailSent ? `${t("auth.resetCodeSent")} ${email.trim()}. ${t("auth.demoCode")}: ${result.devCode}` : `${t("auth.resetCodeSent")} ${email.trim()}.`);
+    });
+  };
+
   const submit = () => {
     setLocalError("");
 
     if (mode === "login") {
       onLogin(email.trim(), password);
+      return;
+    }
+
+    if (mode === "forgot") {
+      if (forgotStep === "request") {
+        startResetRequest();
+        return;
+      }
+      if (forgotStep === "code") {
+        verifyResetCode();
+        return;
+      }
+      finishReset();
       return;
     }
 
@@ -176,7 +277,9 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
     verifyAndRegister();
   };
 
-  const visibleError = localError || (mode === "login" ? error : "");
+  const visibleError = localError || (mode === "login" || mode === "forgot" ? error : "");
+  const authTitle = mode === "login" ? t("auth.welcome") : mode === "register" ? t("auth.register") : t("auth.forgotTitle");
+  const authSubtitle = mode === "login" ? t("auth.loginSubtitle") : mode === "register" ? t("auth.registerSubtitle") : t("auth.forgotSubtitle");
 
   return (
     <section className="auth-layout">
@@ -197,23 +300,91 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
       >
         {mode === "register" && registerStep === "verify" ? null : (
           <div className="auth-panel-heading">
-            <h2>{mode === "login" ? t("auth.welcome") : t("auth.register")}</h2>
-            <p>{mode === "login" ? t("auth.loginSubtitle") : t("auth.registerSubtitle")}</p>
+            <h2>{authTitle}</h2>
+            <p>{authSubtitle}</p>
           </div>
         )}
 
-        <div className="auth-tabs">
-          <button className={mode === "login" ? "active" : ""} type="button" onClick={() => switchMode("login")}>
-            <LogIn size={17} />
-            {t("auth.login")}
+        {mode === "forgot" ? (
+          <button className="auth-back-button" type="button" onClick={() => switchMode("login")}>
+            <ArrowLeft size={17} />
+            {t("auth.backToLogin")}
           </button>
-          <button className={mode === "register" ? "active" : ""} type="button" onClick={() => switchMode("register")}>
-            <UserPlus size={17} />
-            {t("auth.register")}
-          </button>
-        </div>
+        ) : (
+          <div className="auth-tabs">
+            <button className={mode === "login" ? "active" : ""} type="button" onClick={() => switchMode("login")}>
+              <LogIn size={17} />
+              {t("auth.login")}
+            </button>
+            <button className={mode === "register" ? "active" : ""} type="button" onClick={() => switchMode("register")}>
+              <UserPlus size={17} />
+              {t("auth.register")}
+            </button>
+          </div>
+        )}
 
-        {mode === "register" && registerStep === "verify" ? (
+        {mode === "forgot" ? (
+          <div className="verification-card auth-flow-card">
+            {forgotStep === "request" ? <Mail size={36} /> : forgotStep === "code" ? <ShieldCheck size={36} /> : <KeyRound size={36} />}
+            <h2>{forgotStep === "request" ? t("auth.resetRequestTitle") : forgotStep === "code" ? t("auth.resetVerifyTitle") : t("auth.newPasswordTitle")}</h2>
+            <p>{forgotStep === "request" ? t("auth.resetRequestCopy") : forgotStep === "code" ? t("auth.resetVerifyCopy") : t("auth.newPasswordCopy")}</p>
+
+            {forgotStep === "request" ? (
+              <label className="field">
+                <span>{t("fields.email")}</span>
+                <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" />
+              </label>
+            ) : null}
+
+            {forgotStep === "code" ? (
+              <>
+                <label className="field">
+                  <span>{t("fields.confirmationCode")}</span>
+                  <input value={resetCode} onChange={(event) => setResetCode(event.target.value)} inputMode="numeric" />
+                </label>
+                {notice ? <p className="notice-text">{notice}</p> : null}
+                <div className="resend-code-row">
+                  <span>{t("auth.resendPrompt")}</span>
+                  <button className={resendSeconds > 0 ? "disabled" : ""} type="button" onClick={resendResetCode} disabled={resendSeconds > 0}>
+                    <RotateCw size={16} />
+                    {t("auth.resendCode")}
+                    {resendSeconds > 0 ? ` ${t("auth.inSeconds")} ${resendSeconds}s` : ""}
+                  </button>
+                </div>
+              </>
+            ) : null}
+
+            {forgotStep === "password" ? (
+              <>
+                {notice ? <p className="notice-text">{notice}</p> : null}
+                <label className="field">
+                  <span>{t("fields.password")}</span>
+                  <div className="password-field">
+                    <input value={resetPassword} onChange={(event) => setResetPassword(event.target.value)} type={showResetPassword ? "text" : "password"} />
+                    <button type="button" onClick={() => setShowResetPassword((value) => !value)} aria-label={showResetPassword ? t("auth.hidePassword") : t("auth.showPassword")}>
+                      {showResetPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </label>
+                <label className="field">
+                  <span>{t("fields.confirmPassword")}</span>
+                  <div className="password-field">
+                    <input value={confirmResetPassword} onChange={(event) => setConfirmResetPassword(event.target.value)} type={showResetPassword ? "text" : "password"} />
+                    <button type="button" onClick={() => setShowResetPassword((value) => !value)} aria-label={showResetPassword ? t("auth.hidePassword") : t("auth.showPassword")}>
+                      {showResetPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </label>
+              </>
+            ) : null}
+
+            {visibleError ? <p className="error-text">{visibleError}</p> : null}
+            <button className="primary-action" type="submit">
+              {forgotStep === "request" ? <Mail size={18} /> : forgotStep === "code" ? <ShieldCheck size={18} /> : <KeyRound size={18} />}
+              {forgotStep === "request" ? t("auth.sendResetCode") : forgotStep === "code" ? t("auth.confirmEmail") : t("auth.saveNewPassword")}
+            </button>
+          </div>
+        ) : mode === "register" && registerStep === "verify" ? (
           <div className="verification-card">
             <CheckCircle2 size={36} />
             <h2>{t("auth.verifyTitle")}</h2>
@@ -308,6 +479,12 @@ export function AuthView({ users, onLogin, onStartRegister, onVerifyRegister, er
               {mode === "login" ? <LogIn size={18} /> : <UserPlus size={18} />}
               {mode === "login" ? t("auth.login") : t("auth.register")}
             </button>
+
+            {mode === "login" ? (
+              <button className="auth-link-button" type="button" onClick={() => switchMode("forgot")}>
+                {t("auth.forgotPassword")}
+              </button>
+            ) : null}
 
           </>
         )}

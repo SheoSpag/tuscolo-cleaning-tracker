@@ -14,6 +14,7 @@ const host = process.env.HOST || "127.0.0.1";
 const resendApiKey = process.env.RESEND_API_KEY;
 const emailFrom = process.env.EMAIL_FROM || "Tuscolo <onboarding@resend.dev>";
 const sessionSecret = process.env.SESSION_SECRET || "dev-only-change-me";
+const demoDataEnabled = process.env.TUSCOLO_DEMO_DATA !== "false";
 const maxBodyBytes = Number(process.env.MAX_BODY_BYTES || 40 * 1024 * 1024);
 const maxRecordPhotoBytes = Number(process.env.MAX_RECORD_PHOTO_BYTES || 32 * 1024 * 1024);
 const supportedLanguages = new Set(["es", "de", "en", "it"]);
@@ -23,6 +24,7 @@ const legacySectorAssignments = {
   kitchen: ["kitchen-pasta", "kitchen-salad", "kitchen-pizza"],
 };
 const verificationCodes = new Map();
+const passwordResetCodes = new Map();
 const rateLimits = new Map();
 
 const defaultBranches = [
@@ -73,6 +75,56 @@ const defaultUsers = [
     role: "employee",
     assignedBranchIds: ["branch-frankenbad"],
     assignedSectorIds: ["bar", "kitchen-pasta", "kitchen-salad", "kitchen-pizza", "service", "spule"],
+  },
+  {
+    id: "demo-employee-luca",
+    name: "Luca Romano",
+    email: "luca.romano@tuscolo.de",
+    password: "demo1234",
+    language: "it",
+    role: "employee",
+    assignedBranchIds: ["branch-frankenbad", "branch-colonia"],
+    assignedSectorIds: ["kitchen-pasta", "kitchen-pizza"],
+  },
+  {
+    id: "demo-employee-maria",
+    name: "Maria Keller",
+    email: "maria.keller@tuscolo.de",
+    password: "demo1234",
+    language: "de",
+    role: "employee",
+    assignedBranchIds: ["branch-muensterblick"],
+    assignedSectorIds: ["bar", "service"],
+  },
+  {
+    id: "demo-employee-sofia",
+    name: "Sofia Bianchi",
+    email: "sofia.bianchi@tuscolo.de",
+    password: "demo1234",
+    language: "es",
+    role: "employee",
+    assignedBranchIds: ["branch-colonia"],
+    assignedSectorIds: ["kitchen-salad", "service"],
+  },
+  {
+    id: "demo-employee-amin",
+    name: "Amin Yilmaz",
+    email: "amin.yilmaz@tuscolo.de",
+    password: "demo1234",
+    language: "de",
+    role: "employee",
+    assignedBranchIds: ["branch-siegburg"],
+    assignedSectorIds: ["spule", "kitchen-pizza"],
+  },
+  {
+    id: "demo-employee-elena",
+    name: "Elena Fischer",
+    email: "elena.fischer@tuscolo.de",
+    password: "demo1234",
+    language: "en",
+    role: "employee",
+    assignedBranchIds: ["branch-rheinbach"],
+    assignedSectorIds: ["bar", "kitchen-pasta", "service"],
   },
 ];
 const retiredSeedUserIds = new Set(["emp-1", "emp-2", "emp-3", "emp-4"]);
@@ -308,6 +360,106 @@ function publicUser(user) {
   return safeUser;
 }
 
+function monthDate(monthsBack, dayOffset = 1, hour = 10) {
+  const date = new Date();
+  date.setMonth(date.getMonth() - monthsBack, dayOffset);
+  date.setHours(hour, 15, 0, 0);
+  return date;
+}
+
+function demoPhotoUrl(seed) {
+  return `https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=900&q=72&sig=${encodeURIComponent(seed)}`;
+}
+
+function createDemoRecords(branches, users, tasks) {
+  const employees = users.filter((user) => user.role === "employee" && user.assignedBranchIds?.length);
+  const improvementRates = [0.58, 0.64, 0.71, 0.79, 0.87, 0.94];
+  const records = [];
+  let sequence = 0;
+
+  for (let monthIndex = 5; monthIndex >= 0; monthIndex -= 1) {
+    const rate = improvementRates[5 - monthIndex];
+    for (const branch of branches) {
+      const branchEmployees = employees.filter((user) => user.assignedBranchIds?.includes(branch.id));
+      const employeePool = branchEmployees.length ? branchEmployees : employees;
+      const branchTaskAreaIds = new Set(branch.areaIds ?? []);
+      const dailyTasks = tasks.filter((task) => task.frequency === "daily" && branchTaskAreaIds.has(task.areaId));
+      const weeklyTasks = tasks.filter((task) => task.frequency === "weekly" && branchTaskAreaIds.has(task.areaId));
+      const dailySamples = dailyTasks.slice(0, Math.min(12, dailyTasks.length));
+      const weeklySamples = weeklyTasks.slice(0, Math.min(8, weeklyTasks.length));
+
+      dailySamples.forEach((task, index) => {
+        const employee = employeePool[(index + monthIndex) % employeePool.length];
+        if (!employee) return;
+        const completed = ((index + monthIndex + branch.id.length) % 100) / 100 < rate;
+        const createdAt = monthDate(monthIndex, 2 + index * 2, 9 + (index % 7)).toISOString();
+        const relatedTasks = dailyTasks.filter((candidate) => candidate.areaId === task.areaId).slice(0, 5);
+        records.push({
+          id: `demo-daily-${branch.id}-${monthIndex}-${sequence++}`,
+          employeeId: employee.id,
+          branchId: branch.id,
+          areaId: task.areaId,
+          sectorId: task.areaId,
+          recordType: "daily",
+          status: completed ? "completed" : "incomplete",
+          failedTaskId: completed ? null : task.id,
+          failedTaskLabel: completed ? null : task.question,
+          failedTaskIds: completed ? [] : [task.id],
+          failedTaskLabels: completed ? [] : [task.question],
+          failedTaskReasons: completed ? [] : [{ taskId: task.id, label: task.question, reason: "Refuerzo planificado en el próximo cierre" }],
+          taskResults: relatedTasks.map((candidate, taskIndex) => ({
+            taskId: candidate.id,
+            label: candidate.question,
+            status: !completed && taskIndex === 0 ? "not_done" : "done",
+            reason: !completed && taskIndex === 0 ? "Pendiente por falta de tiempo operativo" : null,
+            photoUrls: [],
+          })),
+          photoUrl: demoPhotoUrl(`${branch.id}-${monthIndex}-${index}-main`),
+          photoUrls: [0, 1, 2].map((photoIndex) => demoPhotoUrl(`${branch.id}-${monthIndex}-${index}-${photoIndex}`)),
+          comment: completed ? "Control demo completado dentro del estándar." : "Registro demo marcado para seguimiento.",
+          createdAt,
+        });
+      });
+
+      weeklySamples.forEach((task, index) => {
+        const employee = employeePool[(index + 2 + monthIndex) % employeePool.length];
+        if (!employee) return;
+        const completed = ((index * 7 + monthIndex + branch.name.length) % 100) / 100 < rate;
+        if (!completed && monthIndex === 0 && index > 2) return;
+        const createdAt = monthDate(monthIndex, 5 + index * 3, 12 + (index % 5)).toISOString();
+        records.push({
+          id: `demo-weekly-${branch.id}-${monthIndex}-${sequence++}`,
+          employeeId: employee.id,
+          branchId: branch.id,
+          areaId: task.areaId,
+          sectorId: task.areaId,
+          recordType: "weekly",
+          status: "completed",
+          failedTaskId: null,
+          failedTaskLabel: null,
+          failedTaskIds: [],
+          failedTaskLabels: [],
+          failedTaskReasons: [],
+          taskResults: [
+            {
+              taskId: task.id,
+              label: task.question,
+              status: "done",
+              photoUrls: [0, 1].map((photoIndex) => demoPhotoUrl(`weekly-${branch.id}-${monthIndex}-${index}-${photoIndex}`)),
+            },
+          ],
+          photoUrl: demoPhotoUrl(`weekly-${branch.id}-${monthIndex}-${index}-main`),
+          photoUrls: [0, 1].map((photoIndex) => demoPhotoUrl(`weekly-summary-${branch.id}-${monthIndex}-${index}-${photoIndex}`)),
+          comment: "Tarea semanal demo registrada para análisis de progreso.",
+          createdAt,
+        });
+      });
+    }
+  }
+
+  return records.sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+}
+
 function normalizeDb(db) {
   const branches = normalizeBranches(db.branches);
   const allowedSectorIds = supportedSectorIdsForBranches(branches);
@@ -361,21 +513,27 @@ function normalizeDb(db) {
     }
   }
 
+  const tasks = db.tasks ?? [];
+  const storedRecords = Array.isArray(db.records) ? db.records : [];
+  const shouldAddDemoRecords = demoDataEnabled && tasks.length && !storedRecords.some((record) => String(record.id).startsWith("demo-"));
+
   return {
     ...db,
     branches,
     users,
-    tasks: db.tasks ?? [],
-    records: db.records ?? [],
+    tasks,
+    records: shouldAddDemoRecords ? [...createDemoRecords(branches, users, tasks), ...storedRecords] : storedRecords,
   };
 }
 
 async function createInitialDb() {
+  const users = defaultUsers.map(({ password, ...user }) => ({ ...user, passwordHash: hashPassword(password) }));
+  const tasks = await loadSeedTasks();
   return {
-    users: defaultUsers.map(({ password, ...user }) => ({ ...user, passwordHash: hashPassword(password) })),
+    users,
     branches: defaultBranches,
-    tasks: await loadSeedTasks(),
-    records: [],
+    tasks,
+    records: demoDataEnabled ? createDemoRecords(defaultBranches, users, tasks) : [],
   };
 }
 
@@ -454,6 +612,44 @@ async function sendVerificationEmail({ to, code, name }) {
         </div>
       `,
       text: `Hola ${name}, tu código de confirmación de Tuscolo Cleaning Tracker es ${code}. Vence en 10 minutos.`,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Resend error: ${body}`);
+  }
+
+  return { sent: true };
+}
+
+async function sendPasswordResetEmail({ to, code, name }) {
+  if (!resendApiKey) {
+    console.log(`[Tuscolo] Password reset code for ${to}: ${code}`);
+    return { sent: false, devCode: code };
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${resendApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: emailFrom,
+      to: [to],
+      subject: "Tuscolo Cleaning Tracker - Restablecer contraseña",
+      html: `
+        <div style="font-family:Arial,sans-serif;line-height:1.5;color:#20231b">
+          <h2 style="margin:0 0 12px;color:#6b744d">Tuscolo Cleaning Tracker</h2>
+          <p>Hola ${name},</p>
+          <p>Recibimos una solicitud para restablecer tu contraseña. Tu código es:</p>
+          <p style="font-size:28px;font-weight:800;letter-spacing:4px;margin:18px 0;color:#20231b">${code}</p>
+          <p>Este código vence en 10 minutos. Si no solicitaste este cambio, podés ignorar este email.</p>
+          <p style="color:#6d7164">Sotto il cielo d’Italia</p>
+        </div>
+      `,
+      text: `Hola ${name}, tu código para restablecer la contraseña de Tuscolo Cleaning Tracker es ${code}. Vence en 10 minutos.`,
     }),
   });
 
@@ -584,6 +780,84 @@ async function handleApi(req, res, url) {
     verificationCodes.delete(key);
     await writeDb(db);
     sendJson(res, 201, { user: publicUser(pending.user), token: createSession(pending.user) });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/auth/password/start") {
+    if (!checkRateLimit(req, "password-start", 8, 15 * 60 * 1000)) {
+      sendJson(res, 429, { error: "Too many attempts" });
+      return;
+    }
+
+    const { email } = await readBody(req);
+    const key = String(email || "").trim().toLowerCase();
+    const user = db.users.find((item) => item.email.toLowerCase() === key);
+    if (!key || !user) {
+      sendJson(res, 200, { ok: true, emailSent: false });
+      return;
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    passwordResetCodes.set(key, {
+      code,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+      userId: user.id,
+      verified: false,
+    });
+
+    const emailResult = await sendPasswordResetEmail({ to: user.email, code, name: user.name });
+    sendJson(res, 200, { ok: true, emailSent: emailResult.sent, devCode: emailResult.devCode });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/auth/password/verify") {
+    if (!checkRateLimit(req, "password-verify", 12, 15 * 60 * 1000)) {
+      sendJson(res, 429, { error: "Too many attempts" });
+      return;
+    }
+
+    const { email, code } = await readBody(req);
+    const key = String(email || "").trim().toLowerCase();
+    const pending = passwordResetCodes.get(key);
+    if (!pending || pending.expiresAt < Date.now() || pending.code !== String(code)) {
+      sendJson(res, 400, { error: "Invalid code" });
+      return;
+    }
+
+    pending.verified = true;
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/auth/password/reset") {
+    if (!checkRateLimit(req, "password-reset", 10, 15 * 60 * 1000)) {
+      sendJson(res, 429, { error: "Too many attempts" });
+      return;
+    }
+
+    const { email, code, password } = await readBody(req);
+    const key = String(email || "").trim().toLowerCase();
+    const pending = passwordResetCodes.get(key);
+    if (!pending || pending.expiresAt < Date.now() || pending.code !== String(code) || !pending.verified) {
+      sendJson(res, 400, { error: "Invalid code" });
+      return;
+    }
+    if (String(password || "").length <= 6) {
+      sendJson(res, 400, { error: "Weak password" });
+      return;
+    }
+
+    const user = db.users.find((item) => item.id === pending.userId);
+    if (!user) {
+      passwordResetCodes.delete(key);
+      sendJson(res, 404, { error: "Not found" });
+      return;
+    }
+
+    user.passwordHash = hashPassword(String(password));
+    passwordResetCodes.delete(key);
+    await writeDb(db);
+    sendJson(res, 200, { user: publicUser(user), token: createSession(user) });
     return;
   }
 
