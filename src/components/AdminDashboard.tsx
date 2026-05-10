@@ -50,6 +50,15 @@ type AdminDashboardProps = {
   onBranchesChange: (branches: Branch[]) => void;
   onTasksChange: (tasks: CleaningTask[]) => void;
   onUsersChange: (users: AppUser[]) => void;
+  onCreateUser: (input: {
+    name: string;
+    email: string;
+    password: string;
+    language: Language;
+    role: UserRole;
+    assignedSectorIds?: string[];
+    assignedBranchIds?: string[];
+  }) => Promise<boolean>;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   onLogout: () => void;
@@ -208,6 +217,7 @@ export function AdminDashboard({
   onBranchesChange,
   onTasksChange,
   onUsersChange,
+  onCreateUser,
   theme,
   onThemeChange,
   onLogout,
@@ -223,6 +233,7 @@ export function AdminDashboard({
   const [userSearch, setUserSearch] = useState("");
   const [branchFilter, setBranchFilter] = useState(selectedBranchId);
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const selectedBranch = branches.find((branch) => branch.id === selectedBranchId) ?? branches[0];
   const fallbackBranchId = branches[0]?.id ?? selectedBranchId;
@@ -550,7 +561,7 @@ export function AdminDashboard({
             <LogOut size={17} />
             {t("auth.logout")}
           </button>
-          <button type="button">
+          <button type="button" onClick={() => setHelpOpen(true)}>
             <HelpCircle size={17} />
             {t("admin.menu.help")}
           </button>
@@ -566,7 +577,7 @@ export function AdminDashboard({
             <Menu size={20} />
           </button>
           <div className="admin-title-block">
-            <p>{t("admin.kicker")}</p>
+            <p>{t("app.title")}</p>
             <h1>{t("admin.panelTitle")}</h1>
             <span>{t("admin.welcome")}, {currentUser.name}</span>
           </div>
@@ -655,15 +666,44 @@ export function AdminDashboard({
             branchFilter={branchFilter}
             roleFilter={roleFilter}
             detailed={activeSection === "users"}
+            records={scopedRecords}
             onSearchChange={setUserSearch}
             onBranchFilterChange={setBranchFilter}
             onRoleFilterChange={setRoleFilter}
             onRoleChange={changeUserRole}
             onToggleBranch={toggleUserBranch}
             onToggleSector={toggleUserSector}
+            onCreateUser={onCreateUser}
           />
         ) : null}
+        {helpOpen ? <AdminHelpModal onClose={() => setHelpOpen(false)} /> : null}
       </section>
+    </div>
+  );
+}
+
+function AdminHelpModal({ onClose }: { onClose: () => void }) {
+  const { t } = useI18n();
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="admin-help-title">
+      <div className="admin-dialog">
+        <div className="admin-dialog-header">
+          <div>
+            <p>{t("admin.menu.help")}</p>
+            <h3 id="admin-help-title">{t("admin.help.title")}</h3>
+          </div>
+          <button className="icon-action" type="button" onClick={onClose} aria-label={t("actions.cancel")}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="admin-help-list">
+          <p>{t("admin.help.summary")}</p>
+          <span>{t("admin.help.branch")}</span>
+          <span>{t("admin.help.tasks")}</span>
+          <span>{t("admin.help.users")}</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1046,6 +1086,23 @@ function BranchesSection({
   onDeleteArea: (areaId: string) => void;
 }) {
   const { t } = useI18n();
+  const [branchDialogOpen, setBranchDialogOpen] = useState(false);
+  const [areaDialogOpen, setAreaDialogOpen] = useState(false);
+  const [deleteBranchOpen, setDeleteBranchOpen] = useState(false);
+
+  const handleAddBranch = () => {
+    onAddBranch();
+    if (newBranchName.trim()) {
+      setBranchDialogOpen(false);
+    }
+  };
+
+  const handleAddArea = () => {
+    onAddArea();
+    if (newAreaName.trim()) {
+      setAreaDialogOpen(false);
+    }
+  };
 
   return (
     <div className="admin-section-stack">
@@ -1056,27 +1113,21 @@ function BranchesSection({
             <p>{t("fields.branches")}</p>
             <h2>{t("admin.manageBranches")}</h2>
           </div>
-        </div>
-        <div className="admin-form-grid">
-          <label className="field">
-            <span>{t("fields.branch")}</span>
-            <select value={selectedBranchId} onChange={(event) => onBranchChange(event.target.value)}>
-              {branchSummaries.map((item) => (
-                <option key={item.branch.id} value={item.branch.id}>
-                  {item.branch.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>{t("admin.newBranch")}</span>
-            <input value={newBranchName} onChange={(event) => onNewBranchNameChange(event.target.value)} placeholder={t("admin.newBranchPlaceholder")} />
-          </label>
-          <button className="primary-action" type="button" onClick={onAddBranch}>
+          <button className="primary-action compact-action" type="button" onClick={() => setBranchDialogOpen(true)}>
             <Plus size={18} />
-            {t("actions.add")}
+            {t("admin.addBranch")}
           </button>
-          <button className="secondary-action danger-action" type="button" onClick={onDeleteBranch} disabled={branchSummaries.length <= 1}>
+        </div>
+        <div className="branch-selector-list">
+          {branchSummaries.map((item) => (
+            <button className={item.branch.id === selectedBranchId ? "active" : ""} type="button" onClick={() => onBranchChange(item.branch.id)} key={item.branch.id}>
+              <strong>{item.branch.name}</strong>
+              <span>{item.rate}% · {item.pending} {t("weekly.pending")}</span>
+            </button>
+          ))}
+        </div>
+        <div className="branch-admin-actions">
+          <button className="secondary-action danger-action" type="button" onClick={() => setDeleteBranchOpen(true)} disabled={branchSummaries.length <= 1}>
             <Trash2 size={18} />
             {t("admin.deleteSelectedBranch")}
           </button>
@@ -1089,18 +1140,12 @@ function BranchesSection({
             <p>{selectedBranch?.name ?? t("common.noValue")}</p>
             <h2>{t("admin.branchAreas")}</h2>
           </div>
-        </div>
-        <p className="admin-card-note">{t("admin.branchAreasHelp")}</p>
-        <div className="branch-area-tools">
-          <label className="field">
-            <span>{t("admin.newArea")}</span>
-            <input value={newAreaName} onChange={(event) => onNewAreaNameChange(event.target.value)} placeholder={t("admin.newAreaPlaceholder")} />
-          </label>
-          <button className="primary-action compact-action" type="button" onClick={onAddArea}>
+          <button className="primary-action compact-action" type="button" onClick={() => setAreaDialogOpen(true)}>
             <Plus size={18} />
             {t("admin.addArea")}
           </button>
         </div>
+        <p className="admin-card-note">{t("admin.branchAreasHelp")}</p>
 
         <div className="branch-area-list">
           {areas.map((area) => {
@@ -1155,6 +1200,97 @@ function BranchesSection({
           {!areas.length ? <p className="empty-state">{t("admin.noBranchAreas")}</p> : null}
         </div>
       </article>
+
+      {branchDialogOpen ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="new-branch-title">
+          <div className="admin-dialog">
+            <div className="admin-dialog-header">
+              <div>
+                <p>{t("fields.branches")}</p>
+                <h3 id="new-branch-title">{t("admin.newBranch")}</h3>
+              </div>
+              <button className="icon-action" type="button" onClick={() => setBranchDialogOpen(false)} aria-label={t("actions.cancel")}>
+                <X size={18} />
+              </button>
+            </div>
+            <label className="field">
+              <span>{t("admin.newBranch")}</span>
+              <input value={newBranchName} onChange={(event) => onNewBranchNameChange(event.target.value)} placeholder={t("admin.newBranchPlaceholder")} />
+            </label>
+            <div className="confirm-actions">
+              <button className="secondary-action" type="button" onClick={() => setBranchDialogOpen(false)}>
+                {t("actions.cancel")}
+              </button>
+              <button className="primary-action" type="button" onClick={handleAddBranch}>
+                <Plus size={18} />
+                {t("actions.add")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {areaDialogOpen ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="new-area-title">
+          <div className="admin-dialog">
+            <div className="admin-dialog-header">
+              <div>
+                <p>{selectedBranch?.name ?? t("common.noValue")}</p>
+                <h3 id="new-area-title">{t("admin.newArea")}</h3>
+              </div>
+              <button className="icon-action" type="button" onClick={() => setAreaDialogOpen(false)} aria-label={t("actions.cancel")}>
+                <X size={18} />
+              </button>
+            </div>
+            <label className="field">
+              <span>{t("admin.newArea")}</span>
+              <input value={newAreaName} onChange={(event) => onNewAreaNameChange(event.target.value)} placeholder={t("admin.newAreaPlaceholder")} />
+            </label>
+            <div className="confirm-actions">
+              <button className="secondary-action" type="button" onClick={() => setAreaDialogOpen(false)}>
+                {t("actions.cancel")}
+              </button>
+              <button className="primary-action" type="button" onClick={handleAddArea}>
+                <Plus size={18} />
+                {t("admin.addArea")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {deleteBranchOpen ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="delete-branch-title">
+          <div className="admin-dialog">
+            <div className="admin-dialog-header">
+              <div>
+                <p>{selectedBranch?.name ?? t("common.noValue")}</p>
+                <h3 id="delete-branch-title">{t("admin.deleteSelectedBranch")}</h3>
+              </div>
+              <button className="icon-action" type="button" onClick={() => setDeleteBranchOpen(false)} aria-label={t("actions.cancel")}>
+                <X size={18} />
+              </button>
+            </div>
+            <p className="admin-card-note">{t("admin.deleteBranchHelp")}</p>
+            <div className="confirm-actions">
+              <button className="secondary-action" type="button" onClick={() => setDeleteBranchOpen(false)}>
+                {t("actions.cancel")}
+              </button>
+              <button
+                className="primary-action danger-action"
+                type="button"
+                onClick={() => {
+                  onDeleteBranch();
+                  setDeleteBranchOpen(false);
+                }}
+              >
+                <Trash2 size={18} />
+                {t("actions.delete")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1221,12 +1357,14 @@ function UsersSection({
   branchFilter,
   roleFilter,
   detailed,
+  records,
   onSearchChange,
   onBranchFilterChange,
   onRoleFilterChange,
   onRoleChange,
   onToggleBranch,
   onToggleSector,
+  onCreateUser,
 }: {
   users: AppUser[];
   allUsers: AppUser[];
@@ -1238,15 +1376,36 @@ function UsersSection({
   branchFilter: string;
   roleFilter: RoleFilter;
   detailed: boolean;
+  records: CleaningRecord[];
   onSearchChange: (value: string) => void;
   onBranchFilterChange: (value: string) => void;
   onRoleFilterChange: (value: RoleFilter) => void;
   onRoleChange: (userId: string, role: UserRole) => void;
   onToggleBranch: (userId: string, branchId: string) => void;
   onToggleSector: (userId: string, sectorId: string) => void;
+  onCreateUser: (input: {
+    name: string;
+    email: string;
+    password: string;
+    language: Language;
+    role: UserRole;
+    assignedSectorIds?: string[];
+    assignedBranchIds?: string[];
+  }) => Promise<boolean>;
 }) {
   const { t } = useI18n();
   const branchName = (branchId: string) => branches.find((branch) => branch.id === branchId)?.name ?? branchId;
+  const [createUserOpen, setCreateUserOpen] = useState(false);
+  const usersWithPerformance = users
+    .map((user) => {
+      const userRecords = records.filter((record) => record.employeeId === user.id && isCurrentWeek(record.createdAt));
+      const weeklyDone = userRecords.filter((record) => record.recordType === "weekly").length;
+      const dailyDone = userRecords.filter((record) => (record.recordType ?? "daily") === "daily").length;
+      const completed = userRecords.filter((record) => record.status === "completed").length;
+      const score = weeklyDone * 3 + dailyDone * 2 + completed;
+      return { user, weeklyDone, dailyDone, score };
+    })
+    .sort((left, right) => right.score - left.score || left.user.name.localeCompare(right.user.name));
 
   if (detailed) {
     return (
@@ -1256,7 +1415,7 @@ function UsersSection({
             <p>{t("admin.users.kicker")}</p>
             <h2>{t("admin.users.title")}</h2>
           </div>
-          <button className="primary-action compact-action" type="button">
+          <button className="primary-action compact-action" type="button" onClick={() => setCreateUserOpen(true)}>
             <UserPlus size={18} />
             {t("admin.users.add")}
           </button>
@@ -1273,7 +1432,7 @@ function UsersSection({
         />
 
         <div className="role-card-grid">
-          {users.map((user) => {
+          {usersWithPerformance.map(({ user, weeklyDone, dailyDone, score }) => {
             const isCurrentUser = user.id === currentUser.id;
             const inSelectedBranch = Boolean(selectedBranch && (user.assignedBranchIds ?? []).includes(selectedBranch.id));
 
@@ -1286,6 +1445,12 @@ function UsersSection({
                     <span>{user.email}</span>
                   </div>
                   <span className="status-pill active">{t("admin.active")}</span>
+                </div>
+
+                <div className="employee-performance-row">
+                  <span><strong>{score}</strong>{t("admin.performance.score")}</span>
+                  <span><strong>{weeklyDone}</strong>{t("employeeHistory.weeklyDone")}</span>
+                  <span><strong>{dailyDone}</strong>{t("employeeHistory.closedThisWeek")}</span>
                 </div>
 
                 <div className="role-toggle wide" aria-label={t("fields.role")}>
@@ -1339,6 +1504,17 @@ function UsersSection({
           })}
           {!users.length ? <p className="empty-state">{t("admin.users.empty")}</p> : null}
         </div>
+        {createUserOpen ? (
+          <CreateUserModal
+            branches={branches}
+            selectedBranch={selectedBranch}
+            onClose={() => setCreateUserOpen(false)}
+            onCreate={async (input) => {
+              const ok = await onCreateUser(input);
+              if (ok) setCreateUserOpen(false);
+            }}
+          />
+        ) : null}
       </article>
     );
   }
@@ -1350,7 +1526,7 @@ function UsersSection({
           <p>{detailed ? t("admin.users.kicker") : t("admin.menu.employees")}</p>
           <h2>{detailed ? t("admin.users.title") : t("admin.employeesTitle")}</h2>
         </div>
-        <button className="primary-action compact-action" type="button">
+        <button className="primary-action compact-action" type="button" onClick={() => setCreateUserOpen(true)}>
           <UserPlus size={18} />
           {t("admin.users.add")}
         </button>
@@ -1379,7 +1555,7 @@ function UsersSection({
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => {
+            {usersWithPerformance.map(({ user, weeklyDone, dailyDone, score }) => {
               const isCurrentUser = user.id === currentUser.id;
               const inSelectedBranch = Boolean(selectedBranch && (user.assignedBranchIds ?? []).includes(selectedBranch.id));
               return (
@@ -1387,6 +1563,7 @@ function UsersSection({
                   <tr key={user.id}>
                     <td>
                       <strong>{user.name}</strong>
+                      <small className="employee-score-line">{t("admin.performance.score")}: {score} · {t("employeeHistory.weeklyDone")}: {weeklyDone} · {t("employeeHistory.closedThisWeek")}: {dailyDone}</small>
                     </td>
                     <td>{user.email}</td>
                     <td>{user.assignedBranchIds?.length ? user.assignedBranchIds.map(branchName).join(", ") : t("common.noValue")}</td>
@@ -1441,7 +1618,127 @@ function UsersSection({
         <span>{t("admin.summary.admins")}: {allUsers.filter((user) => user.role === "admin").length}</span>
         <span>{t("admin.summary.employees")}: {allUsers.filter((user) => user.role === "employee").length}</span>
       </div>
+      {createUserOpen ? (
+        <CreateUserModal
+          branches={branches}
+          selectedBranch={selectedBranch}
+          onClose={() => setCreateUserOpen(false)}
+          onCreate={async (input) => {
+            const ok = await onCreateUser(input);
+            if (ok) setCreateUserOpen(false);
+          }}
+        />
+      ) : null}
     </article>
+  );
+}
+
+function CreateUserModal({
+  branches,
+  selectedBranch,
+  onClose,
+  onCreate,
+}: {
+  branches: Branch[];
+  selectedBranch?: Branch;
+  onClose: () => void;
+  onCreate: (input: {
+    name: string;
+    email: string;
+    password: string;
+    language: Language;
+    role: UserRole;
+    assignedSectorIds?: string[];
+    assignedBranchIds?: string[];
+  }) => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [language, setLanguage] = useState<Language>("es");
+  const [role, setRole] = useState<UserRole>("employee");
+  const [branchId, setBranchId] = useState(selectedBranch?.id ?? branches[0]?.id ?? "");
+  const canSave = Boolean(name.trim() && email.trim() && password.length > 6);
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="create-user-title">
+      <div className="admin-dialog">
+        <div className="admin-dialog-header">
+          <div>
+            <p>{t("admin.users.kicker")}</p>
+            <h3 id="create-user-title">{t("admin.users.add")}</h3>
+          </div>
+          <button className="icon-action" type="button" onClick={onClose} aria-label={t("actions.cancel")}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="admin-dialog-grid">
+          <label className="field">
+            <span>{t("fields.name")}</span>
+            <input value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          <label className="field">
+            <span>{t("fields.email")}</span>
+            <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" />
+          </label>
+          <label className="field">
+            <span>{t("fields.password")}</span>
+            <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" />
+          </label>
+          <label className="field">
+            <span>{t("fields.language")}</span>
+            <select value={language} onChange={(event) => setLanguage(event.target.value as Language)}>
+              <option value="es">Español</option>
+              <option value="de">Deutsch</option>
+              <option value="en">English</option>
+              <option value="it">Italiano</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>{t("fields.role")}</span>
+            <select value={role} onChange={(event) => setRole(event.target.value as UserRole)}>
+              <option value="employee">{t("roles.employee")}</option>
+              <option value="admin">{t("roles.admin")}</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>{t("fields.branch")}</span>
+            <select value={branchId} onChange={(event) => setBranchId(event.target.value)}>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="confirm-actions">
+          <button className="secondary-action" type="button" onClick={onClose}>
+            {t("actions.cancel")}
+          </button>
+          <button
+            className="primary-action"
+            type="button"
+            disabled={!canSave}
+            onClick={() =>
+              onCreate({
+                name,
+                email,
+                password,
+                language,
+                role,
+                assignedBranchIds: branchId ? [branchId] : [],
+                assignedSectorIds: role === "admin" ? ["management"] : [],
+              })
+            }
+          >
+            <UserPlus size={18} />
+            {t("admin.users.add")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

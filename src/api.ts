@@ -73,6 +73,19 @@ export const api = {
       method: "POST",
       body: JSON.stringify(record),
     }),
+  createUser: (input: {
+    name: string;
+    email: string;
+    password: string;
+    language: AppUser["language"];
+    role: AppUser["role"];
+    assignedSectorIds?: string[];
+    assignedBranchIds?: string[];
+  }) =>
+    request<{ user: AppUser }>("/api/users", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
   updateUserRole: (userId: string, role: AppUser["role"], assignedSectorIds?: string[], assignedBranchIds?: string[]) =>
     request<{ user: AppUser }>(`/api/users/${userId}/role`, {
       method: "PATCH",

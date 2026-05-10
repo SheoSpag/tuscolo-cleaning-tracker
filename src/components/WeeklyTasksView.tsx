@@ -1,4 +1,4 @@
-import { Camera, Check, ClipboardCheck, ShieldCheck, Trash2 } from "lucide-react";
+import { Camera, Check, ClipboardCheck, Search, ShieldCheck, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { AppUser, Area, CleaningRecord, CleaningTask, Employee } from "../types";
 import { useI18n } from "../i18n/I18nContext";
@@ -63,6 +63,8 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
   const [cameraError, setCameraError] = useState("");
   const [isCameraStarting, setIsCameraStarting] = useState(false);
   const [weeklyFilter, setWeeklyFilter] = useState<WeeklyFilter>("pending");
+  const [weeklyAreaFilter, setWeeklyAreaFilter] = useState("all");
+  const [weeklySearch, setWeeklySearch] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -121,6 +123,16 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
     setActiveTask(item);
     setPhotoUrls([]);
     setPhotoError("");
+    setCameraError("");
+    setCameraOpen(false);
+    stopCamera();
+  };
+
+  const openWeeklyCamera = () => {
+    setCameraError("");
+    setPhotoError("");
+    stopCamera();
+    setCameraOpen(true);
   };
 
   const capturePhoto = () => {
@@ -175,6 +187,8 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
     });
     setActiveTask(null);
     setPhotoUrls([]);
+    setCameraOpen(false);
+    stopCamera();
   };
 
   const weeklyRecords = records.filter((record) => record.recordType === "weekly" && isCurrentWeek(record.createdAt));
@@ -186,9 +200,10 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
       doneRecord: weeklyRecordForTask(records, item.area.id, item.task.id),
     }))
     .sort((left, right) => Number(Boolean(left.doneRecord)) - Number(Boolean(right.doneRecord)));
-  const filteredWeeklyTaskRows = weeklyTaskRows.filter((item) =>
-    weeklyFilter === "all" ? true : weeklyFilter === "done" ? Boolean(item.doneRecord) : !item.doneRecord,
-  );
+  const filteredWeeklyTaskRows = weeklyTaskRows
+    .filter((item) => (weeklyFilter === "all" ? true : weeklyFilter === "done" ? Boolean(item.doneRecord) : !item.doneRecord))
+    .filter((item) => (weeklyAreaFilter === "all" ? true : item.area.id === weeklyAreaFilter))
+    .filter((item) => translateTask(item.task, language).toLowerCase().includes(weeklySearch.trim().toLowerCase()));
 
   const validateWeeklyRecord = (record: CleaningRecord) => {
     onSave({
@@ -249,6 +264,26 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
             <button className={weeklyFilter === "all" ? "active" : ""} type="button" onClick={() => setWeeklyFilter("all")}>
               {t("weekly.showAll")}
             </button>
+          </div>
+          <div className="weekly-filter-controls">
+            <label className="field search-field">
+              <span>{t("fields.search")}</span>
+              <div>
+                <Search size={18} />
+                <input value={weeklySearch} onChange={(event) => setWeeklySearch(event.target.value)} placeholder={t("weekly.searchPlaceholder")} />
+              </div>
+            </label>
+            <label className="field">
+              <span>{t("fields.area")}</span>
+              <select value={weeklyAreaFilter} onChange={(event) => setWeeklyAreaFilter(event.target.value)}>
+                <option value="all">{t("weekly.allAreas")}</option>
+                {weeklyAreas.map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {t(area.nameKey)}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <div className="weekly-task-list">
           {filteredWeeklyTaskRows.map((item) => {
@@ -347,12 +382,20 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
                 ))}
               </div>
             ) : null}
-            <button className="secondary-action" type="button" onClick={() => setCameraOpen(true)} disabled={photoUrls.length >= 3}>
+            <button className="secondary-action" type="button" onClick={openWeeklyCamera} disabled={photoUrls.length >= 3}>
               <Camera size={18} />
               {t("actions.addPhoto")}
             </button>
             <div className="confirm-actions">
-              <button className="secondary-action" type="button" onClick={() => setActiveTask(null)}>
+              <button
+                className="secondary-action"
+                type="button"
+                onClick={() => {
+                  setActiveTask(null);
+                  setCameraOpen(false);
+                  stopCamera();
+                }}
+              >
                 {t("actions.cancel")}
               </button>
               <button className="primary-action" type="button" onClick={submitWeeklyTask}>

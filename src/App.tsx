@@ -390,6 +390,47 @@ function App() {
     void api.saveTasks(nextTasks).catch(() => undefined);
   };
 
+  const createUser = async (input: {
+    name: string;
+    email: string;
+    password: string;
+    language: Language;
+    role: AppUser["role"];
+    assignedBranchIds?: string[];
+    assignedSectorIds?: string[];
+  }) => {
+    const fallbackBranchId = branches[0]?.id ?? defaultBranches[0].id;
+    const optimisticUser: AppUser = {
+      id: `local-${crypto.randomUUID()}`,
+      name: input.name.trim(),
+      email: input.email.trim().toLowerCase(),
+      password: input.password,
+      language: input.language,
+      role: input.role,
+      assignedBranchIds: input.assignedBranchIds?.length ? input.assignedBranchIds : input.role === "admin" ? branches.map((branch) => branch.id) : [fallbackBranchId],
+      assignedSectorIds: normalizeUserSectorIds(input.assignedSectorIds, branches),
+    };
+    const nextUsers = [...users, optimisticUser];
+    setUsers(nextUsers);
+    localStorage.setItem(usersStorageKey, JSON.stringify(nextUsers));
+
+    try {
+      const result = await api.createUser(input);
+      const syncedUsers = nextUsers.map((user) => (user.id === optimisticUser.id ? result.user : user));
+      setUsers(syncedUsers);
+      localStorage.setItem(usersStorageKey, JSON.stringify(syncedUsers));
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (["Email exists", "Invalid user data", "Forbidden", "Unauthorized"].includes(message)) {
+        setUsers(users);
+        localStorage.setItem(usersStorageKey, JSON.stringify(users));
+        return false;
+      }
+      return true;
+    }
+  };
+
   const updateTheme = (nextTheme: Theme) => {
     setTheme(nextTheme);
     localStorage.setItem(themeStorageKey, nextTheme);
@@ -442,6 +483,7 @@ function App() {
             onBranchesChange={updateBranches}
             onTasksChange={updateTasks}
             onUsersChange={updateUsers}
+            onCreateUser={createUser}
             theme={theme}
             onThemeChange={updateTheme}
             onLogout={logout}

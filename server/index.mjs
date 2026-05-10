@@ -653,6 +653,43 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  if (req.method === "POST" && url.pathname === "/api/users") {
+    const authUser = requireAdmin(req, res, db);
+    if (!authUser) return;
+
+    const { name, email, password, language, role, assignedSectorIds, assignedBranchIds } = await readBody(req);
+    const nextRole = role === "admin" ? "admin" : "employee";
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    if (!String(name || "").trim() || !normalizedEmail || String(password || "").length <= 6 || !supportedLanguages.has(String(language))) {
+      sendJson(res, 400, { error: "Invalid user data" });
+      return;
+    }
+    if (db.users.some((user) => user.email.toLowerCase() === normalizedEmail)) {
+      sendJson(res, 409, { error: "Email exists" });
+      return;
+    }
+
+    const allowedSectorIds = supportedSectorIdsForBranches(db.branches);
+    const fallbackBranchIds = nextRole === "admin" ? db.branches.map((branch) => branch.id) : [];
+    const user = {
+      id: `user-${randomBytes(8).toString("hex")}`,
+      name: String(name).trim(),
+      email: normalizedEmail,
+      language: normalizeLanguage(language),
+      role: nextRole,
+      assignedBranchIds: normalizeBranchIds(assignedBranchIds, db.branches, fallbackBranchIds),
+      assignedSectorIds: normalizeSectorIds(assignedSectorIds, nextRole === "admin" ? ["management"] : [], allowedSectorIds),
+      passwordHash: hashPassword(String(password)),
+    };
+    if (user.role === "admin" && !user.assignedBranchIds.length) {
+      user.assignedBranchIds = db.branches.map((branch) => branch.id);
+    }
+    db.users.push(user);
+    await writeDb(db);
+    sendJson(res, 201, { user: publicUser(user) });
+    return;
+  }
+
   const roleMatch = url.pathname.match(/^\/api\/users\/([^/]+)\/role$/);
   if (req.method === "PATCH" && roleMatch) {
     const authUser = requireAdmin(req, res, db);

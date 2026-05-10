@@ -15,18 +15,21 @@ export function LanguageSelector() {
 
   return (
     <div className="language-switcher" role="group" aria-label={t("fields.language")}>
-      {languages.map((item) => (
-        <button
-          className={language === item ? "active" : ""}
-          key={item}
-          type="button"
-          onClick={() => setLanguage(item)}
-          aria-label={languageLabels[item]}
-          title={languageLabels[item]}
-        >
-          {languageFlags[item]}
-        </button>
-      ))}
+      <div>
+        {languages.map((item) => (
+          <button
+            className={language === item ? "active" : ""}
+            key={item}
+            type="button"
+            onClick={() => setLanguage(item)}
+            aria-label={languageLabels[item]}
+            title={languageLabels[item]}
+          >
+            {languageFlags[item]}
+          </button>
+        ))}
+      </div>
+      <span>{languageLabels[language]}</span>
     </div>
   );
 }

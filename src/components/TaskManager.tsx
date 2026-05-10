@@ -1,4 +1,4 @@
-import { CalendarDays, CheckCircle2, Layers3, Pencil, Plus, Save, Trash2, X } from "lucide-react";
+import { CalendarDays, CheckCircle2, Layers3, MoreHorizontal, Pencil, Plus, Save, Search, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { Area, CleaningTask } from "../types";
 import { useI18n } from "../i18n/I18nContext";
@@ -15,6 +15,9 @@ export function TaskManager({ areas, tasks, onTasksChange }: TaskManagerProps) {
   const [areaId, setAreaId] = useState(areas[0]?.id ?? "");
   const [newQuestion, setNewQuestion] = useState("");
   const [newFrequency, setNewFrequency] = useState<CleaningTask["frequency"]>("daily");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [activeOptionsTaskId, setActiveOptionsTaskId] = useState<string | null>(null);
+  const [taskSearch, setTaskSearch] = useState("");
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingQuestion, setEditingQuestion] = useState("");
   const [editingFrequency, setEditingFrequency] = useState<CleaningTask["frequency"]>("daily");
@@ -31,6 +34,7 @@ export function TaskManager({ areas, tasks, onTasksChange }: TaskManagerProps) {
   );
   const dailyTasks = selectedTasks.filter((task) => task.frequency === "daily");
   const weeklyTasks = selectedTasks.filter((task) => task.frequency === "weekly");
+  const filteredTasks = selectedTasks.filter((task) => translateTask(task, language).toLowerCase().includes(taskSearch.trim().toLowerCase()));
   const areaStats = areas.map((area) => ({
     area,
     total: area.tasks.length,
@@ -54,12 +58,14 @@ export function TaskManager({ areas, tasks, onTasksChange }: TaskManagerProps) {
       },
     ]);
     setNewQuestion("");
+    setCreateOpen(false);
   };
 
   const startEdit = (task: CleaningTask) => {
     setEditingTaskId(task.id);
     setEditingQuestion(task.question);
     setEditingFrequency(task.frequency);
+    setActiveOptionsTaskId(null);
   };
 
   const saveEdit = (taskId: string) => {
@@ -93,6 +99,10 @@ export function TaskManager({ areas, tasks, onTasksChange }: TaskManagerProps) {
           <p>{t("tasksManager.subtitle")}</p>
           <h2>{t("tasksManager.title")}</h2>
         </div>
+        <button className="primary-action compact-action" type="button" onClick={() => setCreateOpen(true)}>
+          <Plus size={18} />
+          {t("tasksManager.newTaskTitle")}
+        </button>
       </div>
 
       <div className="task-manager-shell">
@@ -133,93 +143,53 @@ export function TaskManager({ areas, tasks, onTasksChange }: TaskManagerProps) {
           <article className="task-editor-card">
             <div className="task-list-header">
               <div>
-                <p>{selectedArea ? t(selectedArea.nameKey) : t("common.noValue")}</p>
-                <h3>{t("tasksManager.newTaskTitle")}</h3>
-              </div>
-            </div>
-            <div className="new-task-row">
-              <label className="field">
-                <span>{t("fields.frequency")}</span>
-                <select value={newFrequency} onChange={(event) => setNewFrequency(event.target.value as CleaningTask["frequency"])} disabled={!areaId}>
-                  <option value="daily">{t("frequency.daily")}</option>
-                  <option value="weekly">{t("frequency.weekly")}</option>
-                </select>
-              </label>
-              <label className="field">
-                <span>{t("fields.task")}</span>
-                <textarea
-                  value={newQuestion}
-                  onChange={(event) => setNewQuestion(event.target.value)}
-                  placeholder={t("tasksManager.placeholder")}
-                  rows={3}
-                  disabled={!areaId}
-                />
-              </label>
-              <button className="primary-action compact-action" type="button" onClick={addTask} disabled={!areaId || !newQuestion.trim()}>
-                <Plus size={18} />
-                {t("actions.add")}
-              </button>
-            </div>
-          </article>
-
-          <article className="task-editor-card">
-            <div className="task-list-header">
-              <div>
                 <p>{t("fields.task")}</p>
                 <h3>{t("tasksManager.taskListTitle")}</h3>
               </div>
               <span>{selectedTasks.length}</span>
             </div>
+            <label className="field search-field task-search-field">
+              <span>{t("fields.search")}</span>
+              <div>
+                <Search size={18} />
+                <input value={taskSearch} onChange={(event) => setTaskSearch(event.target.value)} placeholder={t("tasksManager.searchPlaceholder")} />
+              </div>
+            </label>
 
             {selectedTasks.length === 0 ? (
               <p className="empty-state">{t("tasksManager.empty")}</p>
+            ) : filteredTasks.length === 0 ? (
+              <p className="empty-state">{t("tasksManager.emptySearch")}</p>
             ) : (
               <div className="task-card-list">
-                {selectedTasks.map((task) => (
+                {filteredTasks.map((task) => (
                   <article className="task-card" key={task.id}>
-                    {editingTaskId === task.id ? (
-                      <>
-                        <div className="task-card-main">
-                          <label className="field">
-                            <span>{t("fields.task")}</span>
-                            <textarea value={editingQuestion} onChange={(event) => setEditingQuestion(event.target.value)} rows={3} />
-                          </label>
-                          <label className="field">
-                            <span>{t("fields.frequency")}</span>
-                            <select
-                              value={editingFrequency}
-                              onChange={(event) => setEditingFrequency(event.target.value as CleaningTask["frequency"])}
-                            >
-                              <option value="daily">{t("frequency.daily")}</option>
-                              <option value="weekly">{t("frequency.weekly")}</option>
-                            </select>
-                          </label>
-                        </div>
-                        <div className="task-actions">
-                          <button className="icon-action" type="button" onClick={() => saveEdit(task.id)} aria-label={t("actions.save")}>
-                            <Save size={18} />
+                    <div className="task-card-main">
+                      <span className="task-pill">{t(`frequency.${task.frequency}`)}</span>
+                      <p>{translateTask(task, language)}</p>
+                    </div>
+                    <div className="task-actions compact-options">
+                      <button
+                        className="icon-action"
+                        type="button"
+                        onClick={() => setActiveOptionsTaskId((current) => (current === task.id ? null : task.id))}
+                        aria-label={t("tasksManager.options")}
+                      >
+                        <MoreHorizontal size={18} />
+                      </button>
+                      {activeOptionsTaskId === task.id ? (
+                        <div className="task-options-menu">
+                          <button type="button" onClick={() => startEdit(task)}>
+                            <Pencil size={16} />
+                            {t("actions.edit")}
                           </button>
-                          <button className="icon-action" type="button" onClick={() => setEditingTaskId(null)} aria-label={t("actions.cancel")}>
-                            <X size={18} />
+                          <button className="danger-option" type="button" onClick={() => deleteTask(task.id)}>
+                            <Trash2 size={16} />
+                            {t("actions.delete")}
                           </button>
                         </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="task-card-main">
-                          <span className="task-pill">{t(`frequency.${task.frequency}`)}</span>
-                          <p>{translateTask(task, language)}</p>
-                        </div>
-                        <div className="task-actions">
-                          <button className="icon-action" type="button" onClick={() => startEdit(task)} aria-label={t("actions.edit")}>
-                            <Pencil size={18} />
-                          </button>
-                          <button className="icon-action danger-icon" type="button" onClick={() => deleteTask(task.id)} aria-label={t("actions.delete")}>
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </>
-                    )}
+                      ) : null}
+                    </div>
                   </article>
                 ))}
               </div>
@@ -227,6 +197,96 @@ export function TaskManager({ areas, tasks, onTasksChange }: TaskManagerProps) {
           </article>
         </div>
       </div>
+      {createOpen ? (
+        <TaskDialog
+          title={t("tasksManager.newTaskTitle")}
+          areaName={selectedArea ? t(selectedArea.nameKey) : t("common.noValue")}
+          question={newQuestion}
+          frequency={newFrequency}
+          onQuestionChange={setNewQuestion}
+          onFrequencyChange={setNewFrequency}
+          onCancel={() => setCreateOpen(false)}
+          onSave={addTask}
+          saveLabel={t("actions.add")}
+          disabled={!areaId || !newQuestion.trim()}
+        />
+      ) : null}
+      {editingTaskId ? (
+        <TaskDialog
+          title={t("actions.edit")}
+          areaName={selectedArea ? t(selectedArea.nameKey) : t("common.noValue")}
+          question={editingQuestion}
+          frequency={editingFrequency}
+          onQuestionChange={setEditingQuestion}
+          onFrequencyChange={setEditingFrequency}
+          onCancel={() => setEditingTaskId(null)}
+          onSave={() => saveEdit(editingTaskId)}
+          saveLabel={t("actions.save")}
+          disabled={!editingQuestion.trim()}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function TaskDialog({
+  title,
+  areaName,
+  question,
+  frequency,
+  saveLabel,
+  disabled,
+  onQuestionChange,
+  onFrequencyChange,
+  onCancel,
+  onSave,
+}: {
+  title: string;
+  areaName: string;
+  question: string;
+  frequency: CleaningTask["frequency"];
+  saveLabel: string;
+  disabled?: boolean;
+  onQuestionChange: (value: string) => void;
+  onFrequencyChange: (value: CleaningTask["frequency"]) => void;
+  onCancel: () => void;
+  onSave: () => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="task-dialog-title">
+      <div className="admin-dialog">
+        <div className="admin-dialog-header">
+          <div>
+            <p>{areaName}</p>
+            <h3 id="task-dialog-title">{title}</h3>
+          </div>
+          <button className="icon-action" type="button" onClick={onCancel} aria-label={t("actions.cancel")}>
+            <X size={18} />
+          </button>
+        </div>
+        <label className="field">
+          <span>{t("fields.frequency")}</span>
+          <select value={frequency} onChange={(event) => onFrequencyChange(event.target.value as CleaningTask["frequency"])}>
+            <option value="daily">{t("frequency.daily")}</option>
+            <option value="weekly">{t("frequency.weekly")}</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>{t("fields.task")}</span>
+          <textarea value={question} onChange={(event) => onQuestionChange(event.target.value)} placeholder={t("tasksManager.placeholder")} rows={4} />
+        </label>
+        <div className="confirm-actions">
+          <button className="secondary-action" type="button" onClick={onCancel}>
+            {t("actions.cancel")}
+          </button>
+          <button className="primary-action" type="button" onClick={onSave} disabled={disabled}>
+            <Save size={18} />
+            {saveLabel}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -120,44 +120,74 @@ export function RecordsView({ records, areas, employees, branches = [], selected
       {currentRecords.length === 0 ? (
         <p className="empty-state">{t("records.empty")}</p>
       ) : (
-        <div className="records-table-wrap">
-          <table>
-            <thead>
-              <tr>
-                {branches.length ? <th>{t("fields.branch")}</th> : null}
-                <th>{t("fields.area")}</th>
-                <th>{t("fields.employee")}</th>
-                <th>{t("fields.status")}</th>
-                <th>{t("fields.comment")}</th>
-                <th>{t("records.failedTask")}</th>
-                <th>{t("records.photo")}</th>
-                <th>{t("fields.date")}</th>
-                <th className="print-hidden">{t("records.details")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentRecords.map((record) => (
-                <tr key={record.id}>
-                  {branches.length ? <td>{findBranch(record.branchId ?? branches[0]?.id)?.name ?? t("common.noValue")}</td> : null}
-                  <td>{t(findArea(record.areaId)?.nameKey ?? record.areaId)}</td>
-                  <td>{findEmployee(record.employeeId)?.name ?? record.employeeId}</td>
-                  <td>
-                    <span className={`table-status ${record.status}`}>{t(`states.${record.status}`)}</span>
-                  </td>
-                  <td>{record.comment || t("common.noValue")}</td>
-                  <td>{findTaskQuestion(record) || t("common.noValue")}</td>
-                  <td>{photoCount(record) ? `${photoCount(record)} ${t("records.photo")}` : t("records.noPhoto")}</td>
-                  <td>{new Date(record.createdAt).toLocaleString(locale)}</td>
-                  <td className="print-hidden">
-                    <button className="icon-action" type="button" onClick={() => setSelectedRecord(record)} aria-label={t("records.details")}>
-                      <Eye size={18} />
-                    </button>
-                  </td>
+        <>
+          <div className="records-card-list print-hidden">
+            {currentRecords.map((record) => (
+              <article className="record-mobile-card" key={record.id}>
+                <div>
+                  <span className={`table-status ${record.status}`}>{t(`states.${record.status}`)}</span>
+                  <strong>{t(findArea(record.areaId)?.nameKey ?? record.areaId)}</strong>
+                  <p>{findEmployee(record.employeeId)?.name ?? record.employeeId}</p>
+                </div>
+                <dl>
+                  {branches.length ? (
+                    <>
+                      <dt>{t("fields.branch")}</dt>
+                      <dd>{findBranch(record.branchId ?? branches[0]?.id)?.name ?? t("common.noValue")}</dd>
+                    </>
+                  ) : null}
+                  <dt>{t("records.photo")}</dt>
+                  <dd>{photoCount(record) ? `${photoCount(record)} ${t("records.photo")}` : t("records.noPhoto")}</dd>
+                  <dt>{t("fields.date")}</dt>
+                  <dd>{new Date(record.createdAt).toLocaleString(locale)}</dd>
+                </dl>
+                {findTaskQuestion(record) ? <p className="record-card-note">{findTaskQuestion(record)}</p> : null}
+                <button className="secondary-action" type="button" onClick={() => setSelectedRecord(record)}>
+                  <Eye size={18} />
+                  {t("records.details")}
+                </button>
+              </article>
+            ))}
+          </div>
+          <div className="records-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  {branches.length ? <th>{t("fields.branch")}</th> : null}
+                  <th>{t("fields.area")}</th>
+                  <th>{t("fields.employee")}</th>
+                  <th>{t("fields.status")}</th>
+                  <th>{t("fields.comment")}</th>
+                  <th>{t("records.failedTask")}</th>
+                  <th>{t("records.photo")}</th>
+                  <th>{t("fields.date")}</th>
+                  <th className="print-hidden">{t("records.details")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {currentRecords.map((record) => (
+                  <tr key={record.id}>
+                    {branches.length ? <td>{findBranch(record.branchId ?? branches[0]?.id)?.name ?? t("common.noValue")}</td> : null}
+                    <td>{t(findArea(record.areaId)?.nameKey ?? record.areaId)}</td>
+                    <td>{findEmployee(record.employeeId)?.name ?? record.employeeId}</td>
+                    <td>
+                      <span className={`table-status ${record.status}`}>{t(`states.${record.status}`)}</span>
+                    </td>
+                    <td>{record.comment || t("common.noValue")}</td>
+                    <td>{findTaskQuestion(record) || t("common.noValue")}</td>
+                    <td>{photoCount(record) ? `${photoCount(record)} ${t("records.photo")}` : t("records.noPhoto")}</td>
+                    <td>{new Date(record.createdAt).toLocaleString(locale)}</td>
+                    <td className="print-hidden">
+                      <button className="icon-action" type="button" onClick={() => setSelectedRecord(record)} aria-label={t("records.details")}>
+                        <Eye size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {selectedRecord ? (

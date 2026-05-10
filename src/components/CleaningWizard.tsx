@@ -98,6 +98,17 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
     window.setTimeout(() => setFeedback(""), 1200);
   };
 
+  const goToStep = (index: number) => {
+    setPendingFailureTask(null);
+    setFailureReason("");
+    setPhotoStage(false);
+    setStepIndex(Math.max(0, Math.min(index, area.tasks.length - 1)));
+  };
+
+  const previousStep = () => {
+    goToStep(stepIndex - 1);
+  };
+
   const answerTask = (answer: Answer) => {
     if (!currentTask) return;
 
@@ -108,6 +119,11 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
     }
 
     setAnswers((value) => ({ ...value, [currentTask.id]: answer }));
+    setFailureReasons((value) => {
+      const next = { ...value };
+      delete next[currentTask.id];
+      return next;
+    });
     setStepIndex((value) => value + 1);
   };
 
@@ -217,6 +233,9 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
               <li key={task.id}>
                 <strong>{translateTask(task, language)}</strong>
                 <span>{failureReasons[task.id] || t("common.noValue")}</span>
+                <button className="admin-link-button" type="button" onClick={() => goToStep(area.tasks.findIndex((item) => item.id === task.id))}>
+                  {t("wizard.editStep")}
+                </button>
               </li>
             ))}
           </ul>
@@ -321,9 +340,28 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
         <span>{answeredCount}/{area.tasks.length} {t("wizard.questionCounter")}</span>
         {failedTasks.length ? <strong>{failedTasks.length} {t("states.incomplete")}</strong> : null}
       </div>
+      <div className="wizard-step-strip" aria-label={t("wizard.stepMap")}>
+        {area.tasks.map((task, index) => {
+          const answer = answers[task.id];
+          return (
+            <button
+              className={`${index === stepIndex ? "active" : ""} ${answer === "yes" ? "done" : answer === "no" ? "failed" : ""}`}
+              type="button"
+              onClick={() => goToStep(index)}
+              key={task.id}
+              aria-label={`${t("wizard.step")} ${index + 1}`}
+            >
+              {index + 1}
+            </button>
+          );
+        })}
+      </div>
       <p className="task-frequency">{t("frequency.daily")}</p>
       <h2>{translateTask(currentTask, language)}</h2>
       <div className="answer-grid wizard-actions">
+        <button className="secondary-action" type="button" onClick={previousStep} disabled={stepIndex === 0}>
+          {t("actions.back")}
+        </button>
         <button className="yes-button" type="button" onClick={() => answerTask("yes")}>
           <Check size={22} />
           {t("actions.yes")}
