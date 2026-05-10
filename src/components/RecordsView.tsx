@@ -1,5 +1,6 @@
 import { Eye, Printer, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import type { Area, Branch, CleaningRecord, CleaningRecordType, Employee, RecordStatus } from "../types";
 import { useI18n } from "../i18n/I18nContext";
 import { translateTaskQuestion } from "../i18n/taskTranslations";
@@ -43,6 +44,9 @@ export function RecordsView({ records, areas, employees, branches = [], selected
   const locale = localeByLanguage[language];
   const now = new Date();
   const formatter = new Intl.DateTimeFormat(locale, period === "month" ? { month: "long", year: "numeric" } : { day: "2-digit", month: "short", year: "numeric" });
+  const weekStart = startOfWeek(now);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
 
   const currentRecords = useMemo(
     () =>
@@ -69,15 +73,14 @@ export function RecordsView({ records, areas, employees, branches = [], selected
           return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
         }
 
-        const start = startOfWeek(now);
-        const end = new Date(start);
-        end.setDate(start.getDate() + 7);
-        return date >= start && date < end;
+        const end = new Date(weekStart);
+        end.setDate(weekStart.getDate() + 7);
+        return date >= weekStart && date < end;
       }),
-    [areaFilter, branches, employeeFilter, records, period, selectedBranchId, statusFilter, typeFilter],
+    [areaFilter, branches, employeeFilter, records, period, selectedBranchId, statusFilter, typeFilter, weekStart],
   );
 
-  const title = period === "month" ? formatter.format(now) : `${formatter.format(startOfWeek(now))} - ${formatter.format(new Date(startOfWeek(now).getTime() + 6 * 24 * 60 * 60 * 1000))}`;
+  const title = period === "month" ? formatter.format(now) : `${formatter.format(weekStart)} - ${formatter.format(weekEnd)}`;
   const findArea = (areaId: string) => areas.find((area) => area.id === areaId);
   const findEmployee = (employeeId: string) => employees.find((employee) => employee.id === employeeId);
   const findBranch = (branchId?: string) => branches.find((branch) => branch.id === branchId);
@@ -91,6 +94,28 @@ export function RecordsView({ records, areas, employees, branches = [], selected
     const taskPhotoCount = record.taskResults?.reduce((sum, result) => sum + (result.photoUrls?.length ?? 0), 0) ?? 0;
     const recordPhotoCount = record.photoUrls?.length ?? (record.photoUrl ? 1 : 0);
     return taskPhotoCount || recordPhotoCount;
+  };
+  const reportSummary = useMemo(
+    () => ({
+      total: currentRecords.length,
+      completed: currentRecords.filter((record) => record.status === "completed").length,
+      incomplete: currentRecords.filter((record) => record.status === "incomplete").length,
+      daily: currentRecords.filter((record) => (record.recordType ?? "daily") === "daily").length,
+      weekly: currentRecords.filter((record) => record.recordType === "weekly").length,
+      photos: currentRecords.reduce((sum, record) => sum + photoCount(record), 0),
+    }),
+    [currentRecords],
+  );
+  const activeFilterLabels = [
+    selectedBranchId ? findBranch(selectedBranchId)?.name ?? selectedBranchId : t("admin.allBranches"),
+    employeeFilter !== "all" ? findEmployee(employeeFilter)?.name ?? employeeFilter : t("records.allEmployees"),
+    areaFilter !== "all" ? t(findArea(areaFilter)?.nameKey ?? areaFilter) : t("records.allAreas"),
+    statusFilter !== "all" ? t(`states.${statusFilter}`) : t("records.allStatuses"),
+    typeFilter !== "all" ? typeLabel(typeFilter) : t("records.allTypes"),
+  ];
+  const printReport = (nextPeriod: SummaryPeriod) => {
+    flushSync(() => setPeriod(nextPeriod));
+    window.requestAnimationFrame(() => window.print());
   };
   const findTaskQuestion = (record: CleaningRecord) => {
     if (record.failedTaskReasons?.length) {
@@ -176,11 +201,32 @@ export function RecordsView({ records, areas, employees, branches = [], selected
               </select>
             </label>
           </div>
-          <button className="secondary-action" type="button" onClick={() => window.print()}>
+          <button className="secondary-action" type="button" onClick={() => printReport("week")}>
             <Printer size={18} />
-            {t("actions.print")}
+            {t("records.printWeekly")}
+          </button>
+          <button className="secondary-action" type="button" onClick={() => printReport("month")}>
+            <Printer size={18} />
+            {t("records.printMonthly")}
           </button>
         </div>
+      </div>
+
+      <div className="print-report-summary">
+        <div>
+          <p>{t("records.reportTitle")}</p>
+          <h3>{title}</h3>
+          <span>{t("records.activeFilters")}: {activeFilterLabels.join(" · ")}</span>
+        </div>
+        <div className="print-report-grid">
+          <span><strong>{reportSummary.total}</strong>{t("records.totalRecords")}</span>
+          <span><strong>{reportSummary.completed}</strong>{t("records.completedRecords")}</span>
+          <span><strong>{reportSummary.incomplete}</strong>{t("records.incompleteRecords")}</span>
+          <span><strong>{reportSummary.daily}</strong>{t("records.dailyRecords")}</span>
+          <span><strong>{reportSummary.weekly}</strong>{t("records.weeklyRecords")}</span>
+          <span><strong>{reportSummary.photos}</strong>{t("records.photosUploaded")}</span>
+        </div>
+        <small>{t("records.printedAt")}: {new Date().toLocaleString(locale)}</small>
       </div>
 
       {currentRecords.length === 0 ? (

@@ -3149,6 +3149,8 @@ input:focus {
 .app-theme-dark .admin-content-header,
 .app-theme-dark .admin-card,
 .app-theme-dark .admin-kpi-card,
+.app-theme-dark .print-report-summary,
+.app-theme-dark .print-report-grid span,
 .app-theme-dark .admin-mobile-pulse,
 .app-theme-dark .admin-mobile-pulse-grid span,
 .app-theme-dark .admin-dialog,
@@ -3216,6 +3218,11 @@ input:focus {
   color: #f8f8f1;
 }
 
+.app-theme-dark .print-report-summary h3,
+.app-theme-dark .print-report-grid strong {
+  color: #f8f8f1;
+}
+
 .app-theme-dark .admin-title-block span,
 .app-theme-dark .admin-mobile-pulse span,
 .app-theme-dark .admin-mobile-pulse-grid span,
@@ -3240,6 +3247,12 @@ input:focus {
 .app-theme-dark .task-area-list small,
 .app-theme-dark .activity-item small,
 .app-theme-dark .admin-card-note {
+  color: #bbc2aa;
+}
+
+.app-theme-dark .print-report-summary span,
+.app-theme-dark .print-report-summary small,
+.app-theme-dark .print-report-grid span {
   color: #bbc2aa;
 }
 
@@ -3585,6 +3598,67 @@ input:focus {
   padding: 8px 10px;
   font-size: 0.88rem;
   font-weight: 800;
+}
+
+.print-report-summary {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 14px;
+  color: var(--color-ink);
+  background: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+}
+
+.print-report-summary p,
+.print-report-summary h3,
+.print-report-summary span,
+.print-report-summary small {
+  margin: 0;
+}
+
+.print-report-summary p {
+  color: var(--color-secondary);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.print-report-summary h3 {
+  margin-top: 2px;
+  font-size: 1.25rem;
+}
+
+.print-report-summary span,
+.print-report-summary small {
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.print-report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 8px;
+}
+
+.print-report-grid span {
+  display: grid;
+  gap: 3px;
+  min-height: 64px;
+  padding: 10px;
+  color: var(--color-muted);
+  background: var(--color-soft);
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+}
+
+.print-report-grid strong {
+  color: var(--color-ink);
+  font-size: 1.35rem;
+  line-height: 1;
 }
 
 .segmented-control {
@@ -4686,8 +4760,18 @@ a {
 }
 
 @media print {
-  body {
-    background: white;
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    min-height: auto;
+    color: #20231b !important;
+    background: white !important;
   }
 
   .print-hidden,
@@ -4697,29 +4781,137 @@ a {
   .app-nav,
   .task-manager,
   .modal-backdrop,
-  .app-header .field {
+  .app-header,
+  .app-header .field,
+  .admin-sidebar,
+  .admin-sidebar-scrim,
+  .admin-content-header,
+  .admin-menu-toggle,
+  .admin-mobile-pulse {
     display: none !important;
   }
 
-  .app-shell {
-    width: 100%;
-    padding: 0;
+  .app-shell,
+  .admin-root,
+  .admin-layout,
+  .admin-content,
+  .admin-section-stack {
+    display: block !important;
+    width: 100% !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #20231b !important;
+    background: white !important;
   }
 
-  .app-header,
   .records-section {
-    box-shadow: none;
-    border: 0;
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #20231b !important;
+    background: white !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .records-toolbar {
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+
+  .records-toolbar p {
+    color: #4f5739 !important;
+  }
+
+  .records-toolbar h2 {
+    color: #20231b !important;
+    font-size: 18pt;
+  }
+
+  .print-report-summary {
+    break-inside: avoid;
+    margin: 0 0 10px;
+    padding: 9px;
+    color: #20231b !important;
+    background: white !important;
+    border: 1px solid #cfd4c3;
+    border-radius: 8px;
+  }
+
+  .print-report-summary h3,
+  .print-report-grid strong {
+    color: #20231b !important;
+  }
+
+  .print-report-summary span,
+  .print-report-summary small,
+  .print-report-grid span {
+    color: #4d5344 !important;
+  }
+
+  .print-report-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .print-report-grid span {
+    min-height: auto;
+    padding: 6px;
+    background: #f7f8f2 !important;
+    border: 1px solid #d7dccd;
+    border-radius: 6px;
+    font-size: 8pt;
+  }
+
+  .print-report-grid strong {
+    font-size: 13pt;
+  }
+
+  .records-card-list {
+    display: none !important;
+  }
+
+  .records-table-wrap {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
   }
 
   table {
-    min-width: 0;
-    font-size: 10pt;
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto;
+    border-collapse: collapse;
+    font-size: 8.5pt;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr,
+  .record-task-detail {
+    break-inside: avoid;
   }
 
   th,
   td {
-    padding: 7px 6px;
+    padding: 5px 4px;
+    color: #20231b !important;
+    word-break: break-word;
+    background: white !important;
+    border-color: #d7dccd !important;
+  }
+
+  .table-status {
+    color: #20231b !important;
+    background: white !important;
+    border-color: #cfd4c3 !important;
   }
 
   .photo-evidence-list {
@@ -4936,12 +5128,52 @@ table.admin-table {
 @media print {
   .admin-sidebar,
   .admin-content-header,
-  .admin-sidebar-scrim {
+  .admin-sidebar-scrim,
+  .admin-menu-toggle,
+  .admin-mobile-pulse,
+  .print-hidden {
     display: none !important;
   }
 
+  .app-shell,
+  .admin-root,
+  .admin-layout,
   .admin-content {
-    margin: 0;
-    padding: 0;
+    display: block !important;
+    width: 100% !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  .records-section {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .records-card-list {
+    display: none !important;
+  }
+
+  .records-table-wrap {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .print-report-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  }
+
+  table {
+    width: 100% !important;
+    min-width: 0 !important;
+    font-size: 8.5pt !important;
   }
 }
