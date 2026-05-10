@@ -37,6 +37,10 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
   const attachedPhotoUrls = summaryPhotoUrls;
   const minDailyPhotos = 6;
   const maxDailyPhotos = 8;
+  const answeredCount = Math.min(Object.keys(answers).length, area.tasks.length);
+  const progressPercent = area.tasks.length ? Math.round((answeredCount / area.tasks.length) * 100) : 0;
+  const missingDailyPhotos = Math.max(minDailyPhotos - attachedPhotoUrls.length, 0);
+  const hasEnoughDailyPhotos = !doneTasks.length || (attachedPhotoUrls.length >= minDailyPhotos && attachedPhotoUrls.length <= maxDailyPhotos);
 
   const stopCamera = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -190,7 +194,7 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
   };
 
   const finishRecord = () => {
-    if (doneTasks.length && (attachedPhotoUrls.length < minDailyPhotos || attachedPhotoUrls.length > maxDailyPhotos)) {
+    if (!hasEnoughDailyPhotos) {
       setPhotoError(t("wizard.photoRequirement"));
       return;
     }
@@ -246,6 +250,13 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
         <h2>{t("wizard.photoStageTitle")}</h2>
         <p className="muted">{t("wizard.photoStageHelp")}</p>
         {photoError ? <p className="error-text">{photoError}</p> : null}
+        <div className={`photo-progress-card ${hasEnoughDailyPhotos ? "ready" : ""}`}>
+          <strong>{attachedPhotoUrls.length}/{maxDailyPhotos}</strong>
+          <span>{hasEnoughDailyPhotos ? t("wizard.photosReady") : `${missingDailyPhotos} ${t("wizard.photosRemaining")}`}</span>
+          <div className="bar-track">
+            <div style={{ width: `${Math.min(100, (attachedPhotoUrls.length / minDailyPhotos) * 100)}%` }} />
+          </div>
+        </div>
         <div className="photo-checklist">
           <article className="photo-task-card">
             <div>
@@ -270,7 +281,7 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
             </button>
           </article>
         </div>
-        <button className={failedTasks.length ? "primary-action danger-action" : "primary-action"} type="button" onClick={finishRecord}>
+        <button className={failedTasks.length ? "primary-action danger-action" : "primary-action"} type="button" onClick={finishRecord} disabled={!hasEnoughDailyPhotos}>
           {failedTasks.length ? <X size={18} /> : <Check size={18} />}
           {failedTasks.length ? t("actions.saveIncomplete") : t("actions.saveCompleted")}
         </button>
@@ -304,11 +315,15 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
         <strong>{t(area.nameKey)}</strong>
       </div>
       <div className="progress-track">
-        <div className="progress-fill" style={{ width: `${((stepIndex + 1) / area.tasks.length) * 100}%` }} />
+        <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+      </div>
+      <div className="wizard-micro-summary">
+        <span>{answeredCount}/{area.tasks.length} {t("wizard.questionCounter")}</span>
+        {failedTasks.length ? <strong>{failedTasks.length} {t("states.incomplete")}</strong> : null}
       </div>
       <p className="task-frequency">{t("frequency.daily")}</p>
       <h2>{translateTask(currentTask, language)}</h2>
-      <div className="answer-grid">
+      <div className="answer-grid wizard-actions">
         <button className="yes-button" type="button" onClick={() => answerTask("yes")}>
           <Check size={22} />
           {t("actions.yes")}

@@ -572,6 +572,30 @@ input:focus {
   text-transform: uppercase;
 }
 
+.quick-area-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 8px;
+}
+
+.quick-area-grid button {
+  min-height: 46px;
+  padding: 9px 10px;
+  color: var(--color-secondary-dark);
+  background: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.quick-area-grid button.active {
+  color: white;
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+  box-shadow: 0 10px 22px rgba(107, 116, 77, 0.2);
+}
+
 .primary-action,
 .secondary-action,
 .yes-button,
@@ -651,6 +675,31 @@ input:focus {
 
 .wizard-panel h2 {
   font-size: clamp(1.45rem, 5vw, 2.4rem);
+}
+
+.wizard-micro-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.wizard-micro-summary span,
+.wizard-micro-summary strong {
+  width: fit-content;
+  padding: 6px 10px;
+  background: var(--color-soft);
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.wizard-micro-summary strong {
+  color: var(--color-danger);
+  background: #fff5f4;
+  border-color: rgba(169, 63, 63, 0.2);
 }
 
 .task-frequency,
@@ -1111,6 +1160,37 @@ input:focus {
   border-radius: 999px;
 }
 
+.photo-progress-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  align-items: center;
+  padding: 12px;
+  background: #fffaf0;
+  border: 1px solid #f1dfb8;
+  border-radius: 12px;
+}
+
+.photo-progress-card.ready {
+  background: #eff8ef;
+  border-color: #cfe2cf;
+}
+
+.photo-progress-card strong {
+  color: var(--color-secondary-dark);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.photo-progress-card span {
+  color: var(--color-muted);
+  font-weight: 850;
+}
+
+.photo-progress-card .bar-track {
+  grid-column: 1 / -1;
+}
+
 .weekly-section {
   display: grid;
   gap: 16px;
@@ -1153,6 +1233,32 @@ input:focus {
   color: var(--color-muted);
   font-size: 0.86rem;
   font-weight: 750;
+}
+
+.weekly-filter-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  background: var(--color-soft);
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+}
+
+.weekly-filter-row button {
+  min-height: 38px;
+  padding: 0 8px;
+  color: var(--color-secondary-dark);
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  font-size: 0.84rem;
+  font-weight: 900;
+}
+
+.weekly-filter-row button.active {
+  color: white;
+  background: var(--color-secondary);
 }
 
 .employee-history {
@@ -1950,10 +2056,10 @@ input:focus {
 
 .admin-content {
   display: grid;
-  gap: 22px;
+  gap: 16px;
   min-width: 0;
   margin-left: 282px;
-  padding: 24px;
+  padding: 18px;
 }
 
 .admin-content-header {
@@ -1962,13 +2068,13 @@ input:focus {
   z-index: 20;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
-  padding: 16px 18px;
+  padding: 11px 14px;
   background: rgba(247, 246, 239, 0.9);
   border: 1px solid rgba(226, 229, 218, 0.8);
   border-radius: 18px;
-  box-shadow: 0 18px 44px rgba(31, 42, 24, 0.08);
+  box-shadow: 0 12px 30px rgba(31, 42, 24, 0.07);
   backdrop-filter: blur(14px);
 }
 
@@ -1990,18 +2096,19 @@ input:focus {
 .admin-card-header h2 {
   margin: 3px 0;
   color: #20231b;
-  font-size: clamp(1.35rem, 3vw, 2rem);
+  font-size: clamp(1.2rem, 2.2vw, 1.62rem);
   line-height: 1.1;
 }
 
 .admin-title-block span {
   color: #6d7164;
+  font-size: 0.86rem;
   font-weight: 700;
 }
 
 .admin-header-actions {
   display: grid;
-  grid-template-columns: minmax(240px, 320px) auto auto auto;
+  grid-template-columns: minmax(220px, 300px) auto auto auto;
   align-items: center;
   justify-content: end;
   gap: 10px;
@@ -2026,8 +2133,8 @@ input:focus {
 }
 
 .admin-branch-scope select {
-  min-height: 42px;
-  padding: 9px 38px 9px 12px;
+  min-height: 38px;
+  padding: 7px 36px 7px 11px;
   color: #1f2a18;
   background-color: white;
   border: 1px solid var(--color-line);
@@ -2050,7 +2157,7 @@ input:focus {
   align-items: center;
   gap: 10px;
   min-width: 0;
-  padding: 6px 10px 6px 6px;
+  padding: 4px 9px 4px 4px;
   background: white;
   border: 1px solid var(--color-line);
   border-radius: 999px;
@@ -2059,8 +2166,8 @@ input:focus {
 .admin-profile > span {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   color: white;
   background: var(--color-secondary);
   border-radius: 999px;
@@ -2111,8 +2218,8 @@ input:focus {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  min-height: 42px;
-  padding: 0 12px;
+  min-height: 38px;
+  padding: 0 10px;
   color: var(--color-secondary-dark);
   background: white;
   border: 1px solid var(--color-line);
@@ -2122,7 +2229,11 @@ input:focus {
 
 .admin-section-stack {
   display: grid;
-  gap: 18px;
+  gap: 14px;
+}
+
+.admin-mobile-pulse {
+  display: none;
 }
 
 .admin-card,
@@ -2445,7 +2556,19 @@ input:focus {
 }
 
 .users-table {
-  min-width: 980px;
+  min-width: 840px;
+}
+
+.users-table .employee-action-heading,
+.users-table .employee-action-cell {
+  width: 1%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.employee-action-cell .admin-link-button {
+  width: max-content;
+  margin-left: auto;
 }
 
 .role-management-panel {
@@ -2612,6 +2735,8 @@ input:focus {
 .app-theme-dark .admin-content-header,
 .app-theme-dark .admin-card,
 .app-theme-dark .admin-kpi-card,
+.app-theme-dark .admin-mobile-pulse,
+.app-theme-dark .admin-mobile-pulse-grid span,
 .app-theme-dark .role-user-card,
 .app-theme-dark .branch-area-card,
 .app-theme-dark .branch-area-toggle,
@@ -2641,6 +2766,8 @@ input:focus {
 
 .app-theme-dark .admin-title-block h1,
 .app-theme-dark .admin-card-header h2,
+.app-theme-dark .admin-mobile-pulse h2,
+.app-theme-dark .admin-mobile-pulse-grid strong,
 .app-theme-dark .admin-kpi-card strong,
 .app-theme-dark .admin-table td strong,
 .app-theme-dark .role-user-card-header strong,
@@ -2656,6 +2783,8 @@ input:focus {
 }
 
 .app-theme-dark .admin-title-block span,
+.app-theme-dark .admin-mobile-pulse span,
+.app-theme-dark .admin-mobile-pulse-grid span,
 .app-theme-dark .admin-profile small,
 .app-theme-dark .admin-kpi-card p,
 .app-theme-dark .admin-kpi-card span,
@@ -2685,6 +2814,9 @@ input:focus {
 
 .app-theme-dark .bar-track,
 .app-theme-dark .admin-kpi-card > div,
+.app-theme-dark .quick-area-grid button,
+.app-theme-dark .photo-progress-card,
+.app-theme-dark .weekly-filter-row,
 .app-theme-dark .task-area-panel-header strong,
 .app-theme-dark .task-list-header > span,
 .app-theme-dark .role-toggle,
@@ -2701,6 +2833,18 @@ input:focus {
   color: #ffb4a9;
   background: rgba(169, 63, 63, 0.14);
   border-color: rgba(255, 180, 169, 0.22);
+}
+
+.app-theme-dark .quick-area-grid button.active,
+.app-theme-dark .weekly-filter-row button.active {
+  color: white;
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+}
+
+.app-theme-dark .wizard-actions {
+  background: rgba(32, 41, 27, 0.92);
+  border-color: rgba(226, 229, 218, 0.16);
 }
 
 .task-manager {
@@ -3383,6 +3527,19 @@ a {
     overflow-wrap: anywhere;
   }
 
+  .wizard-actions {
+    position: sticky;
+    bottom: 8px;
+    z-index: 4;
+    margin: 0 -6px -6px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid var(--color-line);
+    border-radius: 14px;
+    box-shadow: 0 14px 34px rgba(32, 35, 27, 0.16);
+    backdrop-filter: blur(12px);
+  }
+
   .progress-row,
   .records-toolbar,
   .user-management .section-heading {
@@ -3399,6 +3556,14 @@ a {
   .task-row,
   .user-row {
     padding: 12px;
+  }
+
+  .quick-area-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quick-area-grid button {
+    min-height: 50px;
   }
 
   .weekly-task-row {
@@ -3422,6 +3587,10 @@ a {
   .kpi-grid,
   .weekly-progress-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .weekly-progress-grid article:first-child {
+    grid-column: 1 / -1;
   }
 
   .kpi-grid strong,
@@ -3530,6 +3699,83 @@ a {
     padding: 10px 12px 12px;
     background: white;
     border-top: 1px solid var(--color-line);
+  }
+
+  .admin-mobile-pulse {
+    display: grid;
+    gap: 12px;
+    padding: 15px;
+    color: #20231b;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(226, 229, 218, 0.92);
+    border-radius: 16px;
+    box-shadow: 0 16px 42px rgba(31, 42, 24, 0.06);
+  }
+
+  .admin-mobile-pulse p {
+    margin: 0;
+    color: var(--color-secondary);
+    font-size: 0.76rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .admin-mobile-pulse h2 {
+    margin: 2px 0;
+    color: #20231b;
+    font-size: 2.15rem;
+    line-height: 1;
+  }
+
+  .admin-mobile-pulse > div:first-child span {
+    color: var(--color-muted);
+    font-weight: 800;
+  }
+
+  .admin-mobile-pulse-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .admin-mobile-pulse-grid span {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    padding: 10px;
+    color: var(--color-muted);
+    background: var(--color-soft);
+    border: 1px solid var(--color-line);
+    border-radius: 12px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .admin-mobile-pulse-grid strong {
+    color: var(--color-secondary-dark);
+    font-size: 1.15rem;
+    line-height: 1.05;
+  }
+
+  .admin-kpi-grid {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    margin: 0 -8px;
+    padding: 0 8px 4px;
+    scroll-snap-type: x proximity;
+  }
+
+  .admin-kpi-card {
+    flex: 0 0 178px;
+    scroll-snap-align: start;
+  }
+
+  .admin-analytics-grid,
+  .admin-dashboard-grid {
+    gap: 12px;
   }
 
   .record-detail-modal {
@@ -3820,7 +4066,7 @@ table.admin-table {
 
   .admin-content {
     margin-left: 0;
-    padding: 14px;
+    padding: 12px;
   }
 
   .admin-menu-toggle {
@@ -3829,6 +4075,7 @@ table.admin-table {
 
   .admin-content-header {
     grid-template-columns: auto 1fr;
+    padding: 10px;
   }
 
   .admin-header-actions {
@@ -3847,16 +4094,12 @@ table.admin-table {
 
 @media (max-width: 720px) {
   .admin-content {
-    padding: 10px;
+    padding: 8px;
   }
 
   .admin-content-header,
   .admin-card {
     border-radius: 14px;
-  }
-
-  .admin-content-header {
-    padding: 12px;
   }
 
   .admin-header-actions {

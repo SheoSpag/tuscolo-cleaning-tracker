@@ -76,17 +76,26 @@ export function Home({
         ) : null}
 
         {areas.length ? (
-          <label className="field">
-            <span>{t("home.selectSector")}</span>
-            <select value={selectedAreaId} onChange={(event) => onAreaChange(event.target.value)}>
-              <option value="">{t("common.select")}</option>
+          <>
+            <label className="field">
+              <span>{t("home.selectSector")}</span>
+              <select value={selectedAreaId} onChange={(event) => onAreaChange(event.target.value)}>
+                <option value="">{t("common.select")}</option>
+                {areas.map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {t(area.nameKey)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="quick-area-grid" aria-label={t("home.quickArea")}>
               {areas.map((area) => (
-                <option key={area.id} value={area.id}>
+                <button className={selectedAreaId === area.id ? "active" : ""} type="button" onClick={() => onAreaChange(area.id)} key={area.id}>
                   {t(area.nameKey)}
-                </option>
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+          </>
         ) : (
           <p className="empty-state">{t("home.noSectors")}</p>
         )}

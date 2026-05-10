@@ -685,6 +685,7 @@ function DashboardSummary({
 
   return (
     <div className="admin-section-stack">
+      <MobileAdminPulse selectedSummary={selectedSummary} failureRows={failureRows} activity={activity} />
       <div className="admin-kpi-grid">
         <KpiCard icon={TrendingUp} label={t("admin.kpi.weeklyRate")} value={`${selectedSummary.rate}%`} detail={selectedSummary.branch?.name ?? ""} />
         <KpiCard icon={ListChecks} label={t("admin.kpi.weeklyDone")} value={`${selectedSummary.done}/${selectedSummary.total}`} detail={t("weekly.done")} />
@@ -704,6 +705,48 @@ function DashboardSummary({
 
       <RecentActivity items={activity} />
     </div>
+  );
+}
+
+function MobileAdminPulse({
+  selectedSummary,
+  failureRows,
+  activity,
+}: {
+  selectedSummary: BranchSummary;
+  failureRows: FailureRow[];
+  activity: ActivityItem[];
+}) {
+  const { t } = useI18n();
+  const mainRisk = failureRows[0];
+  const lastActivity = activity[0];
+
+  return (
+    <article className="admin-mobile-pulse">
+      <div>
+        <p>{t("admin.mobilePulseTitle")}</p>
+        <h2>{selectedSummary.rate}%</h2>
+        <span>{selectedSummary.branch?.name ?? t("admin.allBranches")}</span>
+      </div>
+      <div className="admin-mobile-pulse-grid">
+        <span>
+          <strong>{selectedSummary.pending}</strong>
+          {t("admin.mobilePulsePending")}
+        </span>
+        <span>
+          <strong>{selectedSummary.photos}</strong>
+          {t("admin.mobilePulsePhotos")}
+        </span>
+        <span>
+          <strong>{mainRisk?.count ?? 0}</strong>
+          {mainRisk ? `${t("admin.mobilePulseRisk")}: ${mainRisk.task}` : t("admin.mobilePulseRisk")}
+        </span>
+        <span>
+          <strong>{lastActivity?.time ?? "-"}</strong>
+          {lastActivity?.text ?? t("admin.mobilePulseLast")}
+        </span>
+      </div>
+    </article>
   );
 }
 
@@ -1332,7 +1375,7 @@ function UsersSection({
               <th>{t("fields.branch")}</th>
               <th>{t("fields.role")}</th>
               <th>{t("admin.table.status")}</th>
-              <th>{t("admin.table.action")}</th>
+              <th className="employee-action-heading">{t("admin.table.action")}</th>
             </tr>
           </thead>
           <tbody>
@@ -1356,7 +1399,7 @@ function UsersSection({
                     <td>
                       <span className="status-pill active">{t("admin.active")}</span>
                     </td>
-                    <td>
+                    <td className="employee-action-cell">
                       {selectedBranch ? (
                         <button className="admin-link-button" type="button" onClick={() => onToggleBranch(user.id, selectedBranch.id)} disabled={isCurrentUser}>
                           {inSelectedBranch ? t("admin.users.removeBranch") : t("admin.users.addBranch")}

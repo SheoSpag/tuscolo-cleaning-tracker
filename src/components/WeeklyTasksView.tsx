@@ -18,6 +18,8 @@ type WeeklyTaskItem = {
   task: CleaningTask;
 };
 
+type WeeklyFilter = "pending" | "done" | "all";
+
 function startOfWeek(date: Date) {
   const next = new Date(date);
   const day = next.getDay();
@@ -60,6 +62,7 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [isCameraStarting, setIsCameraStarting] = useState(false);
+  const [weeklyFilter, setWeeklyFilter] = useState<WeeklyFilter>("pending");
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -136,8 +139,6 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     setPhotoUrls((value) => [...value, canvas.toDataURL("image/jpeg", 0.72)].slice(0, 3));
     setPhotoError("");
-    setCameraOpen(false);
-    stopCamera();
   };
 
   const submitWeeklyTask = () => {
@@ -179,6 +180,15 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
   const weeklyRecords = records.filter((record) => record.recordType === "weekly" && isCurrentWeek(record.createdAt));
   const reviewRecords = records.filter((record) => record.recordType === "weekly-review" && isCurrentWeek(record.createdAt));
   const pendingReviewRecords = weeklyRecords.filter((record) => !reviewRecords.some((review) => review.reviewedRecordId === record.id));
+  const weeklyTaskRows = uniqueWeeklyTasks
+    .map((item) => ({
+      ...item,
+      doneRecord: weeklyRecordForTask(records, item.area.id, item.task.id),
+    }))
+    .sort((left, right) => Number(Boolean(left.doneRecord)) - Number(Boolean(right.doneRecord)));
+  const filteredWeeklyTaskRows = weeklyTaskRows.filter((item) =>
+    weeklyFilter === "all" ? true : weeklyFilter === "done" ? Boolean(item.doneRecord) : !item.doneRecord,
+  );
 
   const validateWeeklyRecord = (record: CleaningRecord) => {
     onSave({
@@ -228,9 +238,21 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
       </div>
 
       {uniqueWeeklyTasks.length ? (
-        <div className="weekly-task-list">
-          {uniqueWeeklyTasks.map((item) => {
-            const doneRecord = weeklyRecordForTask(records, item.area.id, item.task.id);
+        <>
+          <div className="weekly-filter-row" aria-label={t("weekly.quickFilters")}>
+            <button className={weeklyFilter === "pending" ? "active" : ""} type="button" onClick={() => setWeeklyFilter("pending")}>
+              {t("weekly.showPending")} ({pendingCount})
+            </button>
+            <button className={weeklyFilter === "done" ? "active" : ""} type="button" onClick={() => setWeeklyFilter("done")}>
+              {t("weekly.showDone")} ({doneCount})
+            </button>
+            <button className={weeklyFilter === "all" ? "active" : ""} type="button" onClick={() => setWeeklyFilter("all")}>
+              {t("weekly.showAll")}
+            </button>
+          </div>
+          <div className="weekly-task-list">
+          {filteredWeeklyTaskRows.map((item) => {
+            const doneRecord = item.doneRecord;
             const user = doneRecord ? users.find((candidate) => candidate.id === doneRecord.employeeId) : null;
 
             return (
@@ -251,7 +273,9 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
               </article>
             );
           })}
-        </div>
+          {!filteredWeeklyTaskRows.length ? <p className="empty-state">{t("weekly.emptyFilter")}</p> : null}
+          </div>
+        </>
       ) : (
         <p className="empty-state">{t("weekly.empty")}</p>
       )}
@@ -342,6 +366,8 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
 
       {cameraOpen ? (
         <WeeklyCameraModal
+          totalPhotos={photoUrls.length}
+          maxPhotos={3}
           cameraError={cameraError}
           isCameraStarting={isCameraStarting}
           videoRef={videoRef}
@@ -357,6 +383,8 @@ export function WeeklyTasksView({ areas, allAreas, records, users, employee, onS
 }
 
 type WeeklyCameraModalProps = {
+  totalPhotos: number;
+  maxPhotos: number;
   cameraError: string;
   isCameraStarting: boolean;
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -364,8 +392,9 @@ type WeeklyCameraModalProps = {
   onCapture: () => void;
 };
 
-function WeeklyCameraModal({ cameraError, isCameraStarting, videoRef, onCancel, onCapture }: WeeklyCameraModalProps) {
+function WeeklyCameraModal({ totalPhotos, maxPhotos, cameraError, isCameraStarting, videoRef, onCancel, onCapture }: WeeklyCameraModalProps) {
   const { t } = useI18n();
+  const reachedTotalLimit = totalPhotos >= maxPhotos;
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="weekly-camera-title">
@@ -374,6 +403,10 @@ function WeeklyCameraModal({ cameraError, isCameraStarting, videoRef, onCancel, 
           <h3 id="weekly-camera-title">{t("wizard.cameraTitle")}</h3>
           <p className="muted">{t("wizard.cameraHelp")}</p>
         </div>
+        <div className="camera-session-summary">
+          <strong>{totalPhotos}/{maxPhotos}</strong>
+          <span>{t("wizard.photoTotal")}</span>
+        </div>
         <div className="camera-preview">
           {cameraError ? <p className="error-text">{cameraError}</p> : null}
           {!cameraError ? <video ref={videoRef} playsInline muted /> : null}
@@ -381,9 +414,9 @@ function WeeklyCameraModal({ cameraError, isCameraStarting, videoRef, onCancel, 
         </div>
         <div className="confirm-actions">
           <button className="secondary-action" type="button" onClick={onCancel}>
-            {t("actions.cancel")}
+            {t("actions.done")}
           </button>
-          <button className="primary-action" type="button" onClick={onCapture} disabled={Boolean(cameraError) || isCameraStarting}>
+          <button className="primary-action" type="button" onClick={onCapture} disabled={Boolean(cameraError) || isCameraStarting || reachedTotalLimit}>
             <Camera size={18} />
             {t("actions.capturePhoto")}
           </button>
