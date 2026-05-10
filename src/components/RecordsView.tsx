@@ -1,6 +1,6 @@
 import { Eye, Printer, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { flushSync } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import type { Area, Branch, CleaningRecord, CleaningRecordType, Employee, RecordStatus } from "../types";
 import { useI18n } from "../i18n/I18nContext";
 import { translateTaskQuestion } from "../i18n/taskTranslations";
@@ -486,8 +486,9 @@ function RecordDetailModal({ record, area, employee, onClose }: RecordDetailModa
   const recordPhotoUrls = record.photoUrls?.length ? record.photoUrls : record.photoUrl ? [record.photoUrl] : [];
   const summaryPhotoUrls = record.recordType === "daily" || !taskPhotoCount ? recordPhotoUrls : [];
   const totalPhotos = taskPhotoCount || summaryPhotoUrls.length;
+  const portalTarget = document.querySelector(".app-theme-dark, .app-theme-light") ?? document.body;
 
-  return (
+  return createPortal(
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="record-detail-title">
       <div className="record-detail-modal">
         <div className="record-detail-header">
@@ -548,6 +549,7 @@ function RecordDetailModal({ record, area, employee, onClose }: RecordDetailModa
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    portalTarget,
   );
 }

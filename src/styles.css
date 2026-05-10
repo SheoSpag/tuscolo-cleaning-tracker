@@ -3146,9 +3146,34 @@ input:focus {
   border-color: var(--color-secondary);
 }
 
+.app-theme-dark {
+  --color-primary: #151c12;
+  --color-secondary-dark: #dce5c6;
+  --color-ink: #f8f8f1;
+  --color-muted: #bbc2aa;
+  --color-line: rgba(226, 229, 218, 0.16);
+  --color-soft: #151c12;
+}
+
+.app-theme-dark.app-shell {
+  color: #f3f4ec;
+}
+
 .app-theme-dark .admin-content-header,
 .app-theme-dark .admin-card,
 .app-theme-dark .admin-kpi-card,
+.app-theme-dark .setup-panel,
+.app-theme-dark .wizard-panel,
+.app-theme-dark .final-panel,
+.app-theme-dark .records-section,
+.app-theme-dark .task-manager,
+.app-theme-dark .weekly-section,
+.app-theme-dark .employee-history-panel,
+.app-theme-dark .employee-history-grid article,
+.app-theme-dark .current-user-card,
+.app-theme-dark .confirm-no-photo,
+.app-theme-dark .camera-modal,
+.app-theme-dark .record-detail-modal,
 .app-theme-dark .print-report-summary,
 .app-theme-dark .print-report-grid span,
 .app-theme-dark .admin-mobile-pulse,
@@ -3179,6 +3204,9 @@ input:focus {
 .app-theme-dark .admin-icon-button,
 .app-theme-dark .admin-branch-scope select,
 .app-theme-dark .admin-table select,
+.app-theme-dark select,
+.app-theme-dark textarea,
+.app-theme-dark input,
 .app-theme-dark .records-filter-grid select,
 .app-theme-dark .compact-select,
 .app-theme-dark .search-field > div,
@@ -3197,6 +3225,14 @@ input:focus {
 
 .app-theme-dark .admin-title-block h1,
 .app-theme-dark .admin-card-header h2,
+.app-theme-dark .section-heading h2,
+.app-theme-dark .wizard-panel h2,
+.app-theme-dark .final-panel h2,
+.app-theme-dark .records-toolbar h2,
+.app-theme-dark .weekly-progress-grid strong,
+.app-theme-dark .employee-history-title h3,
+.app-theme-dark .employee-history-grid strong,
+.app-theme-dark .record-detail-header h3,
 .app-theme-dark .admin-mobile-pulse h2,
 .app-theme-dark .admin-mobile-pulse-grid strong,
 .app-theme-dark .admin-kpi-card strong,
@@ -3226,6 +3262,16 @@ input:focus {
 .app-theme-dark .admin-title-block span,
 .app-theme-dark .admin-mobile-pulse span,
 .app-theme-dark .admin-mobile-pulse-grid span,
+.app-theme-dark .field span,
+.app-theme-dark .muted,
+.app-theme-dark .records-toolbar p,
+.app-theme-dark .weekly-progress-grid span,
+.app-theme-dark .weekly-progress-grid p,
+.app-theme-dark .employee-history-grid span,
+.app-theme-dark .employee-history-grid p,
+.app-theme-dark .employee-history-title p,
+.app-theme-dark .record-detail-header span,
+.app-theme-dark .photo-evidence span,
 .app-theme-dark .admin-profile small,
 .app-theme-dark .admin-kpi-card p,
 .app-theme-dark .admin-kpi-card span,
@@ -3256,6 +3302,50 @@ input:focus {
   color: #bbc2aa;
 }
 
+.app-theme-dark table,
+.app-theme-dark th,
+.app-theme-dark td {
+  color: #f3f4ec;
+  border-color: rgba(226, 229, 218, 0.14);
+}
+
+.app-theme-dark th {
+  color: #bbc2aa;
+  background: #182112;
+}
+
+.app-theme-dark a,
+.app-theme-dark .photo-evidence,
+.app-theme-dark .text-file-action,
+.app-theme-dark .auth-link-button {
+  color: #dce5c6;
+}
+
+.app-theme-dark .secondary-action,
+.app-theme-dark .icon-action {
+  color: #f3f4ec;
+  background: #151c12;
+  border-color: rgba(226, 229, 218, 0.16);
+}
+
+.app-theme-dark .no-button {
+  color: #ffb4a9;
+  background: rgba(169, 63, 63, 0.14);
+  border-color: rgba(255, 180, 169, 0.22);
+}
+
+.app-theme-dark .table-status.completed,
+.app-theme-dark .status-badge.success {
+  color: #9fdda5;
+  background: rgba(61, 117, 71, 0.2);
+}
+
+.app-theme-dark .table-status.incomplete,
+.app-theme-dark .status-badge.danger {
+  color: #ffb4a9;
+  background: rgba(169, 63, 63, 0.16);
+}
+
 .app-theme-dark .admin-table th,
 .app-theme-dark .activity-item,
 .app-theme-dark .admin-card-note,
@@ -3267,6 +3357,16 @@ input:focus {
 
 .app-theme-dark .admin-table td {
   border-color: rgba(226, 229, 218, 0.12);
+}
+
+.app-theme-dark .record-photo-grid a,
+.app-theme-dark .photo-evidence img,
+.app-theme-dark .empty-state,
+.app-theme-dark .photo-loaded-card,
+.app-theme-dark .file-drop {
+  color: #bbc2aa;
+  background: #151c12;
+  border-color: rgba(226, 229, 218, 0.14);
 }
 
 .app-theme-dark .bar-track,
