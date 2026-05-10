@@ -1174,10 +1174,9 @@ function BranchesSection({
                     )}
                     <small>{isCustom ? t("admin.customArea") : t("admin.baseArea")}</small>
                   </div>
-                  <label className="branch-area-toggle">
-                    <input type="checkbox" checked={isActive} onChange={() => onToggleArea(area.id)} />
+                  <button className="branch-area-toggle" type="button" aria-pressed={isActive} onClick={() => onToggleArea(area.id)}>
                     <span>{isActive ? t("admin.areaActive") : t("admin.areaInactive")}</span>
-                  </label>
+                  </button>
                 </div>
                 <div className="branch-area-people">
                   <span>
@@ -1579,13 +1578,11 @@ function UsersSection({
               <th>{t("fields.branch")}</th>
               <th>{t("fields.role")}</th>
               <th>{t("admin.table.status")}</th>
-              <th className="employee-action-heading">{t("admin.table.action")}</th>
             </tr>
           </thead>
           <tbody>
             {usersWithPerformance.map(({ user, weeklyDone, dailyDone, score }) => {
               const isCurrentUser = user.id === currentUser.id;
-              const inSelectedBranch = Boolean(selectedBranch && (user.assignedBranchIds ?? []).includes(selectedBranch.id));
               return (
                 <Fragment key={user.id}>
                   <tr key={user.id}>
@@ -1604,38 +1601,7 @@ function UsersSection({
                     <td>
                       <span className="status-pill active">{t("admin.active")}</span>
                     </td>
-                    <td className="employee-action-cell">
-                      {selectedBranch ? (
-                        <button className="admin-link-button" type="button" onClick={() => onToggleBranch(user.id, selectedBranch.id)} disabled={isCurrentUser}>
-                          {inSelectedBranch ? t("admin.users.removeBranch") : t("admin.users.addBranch")}
-                        </button>
-                      ) : (
-                        <span className="employee-action-note">{t("admin.selectBranchForAction")}</span>
-                      )}
-                    </td>
                   </tr>
-                  {detailed ? (
-                    <tr className="user-sector-row" key={`${user.id}-sectors`}>
-                      <td colSpan={6}>
-                        <div className="sector-checkboxes">
-                          {assignableAreas.map((area) => {
-                            const disabled = (!inSelectedBranch && area.id !== "management") || (isCurrentUser && area.id === "management");
-                            return (
-                              <label className={disabled ? "disabled-option" : ""} key={`${user.id}-${area.id}`}>
-                                <input
-                                  type="checkbox"
-                                  checked={(user.assignedSectorIds ?? []).includes(area.id)}
-                                  onChange={() => onToggleSector(user.id, area.id)}
-                                  disabled={disabled}
-                                />
-                                <span>{t(area.nameKey)}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </td>
-                    </tr>
-                  ) : null}
                 </Fragment>
               );
             })}

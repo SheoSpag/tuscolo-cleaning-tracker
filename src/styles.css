@@ -698,6 +698,23 @@ input:focus {
   font-size: clamp(1.45rem, 5vw, 2.4rem);
 }
 
+.wizard-question-card {
+  display: grid;
+  align-content: center;
+  gap: 14px;
+  min-height: 220px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+}
+
+.wizard-question-card h2 {
+  margin: 0;
+  line-height: 1.16;
+  overflow-wrap: anywhere;
+}
+
 .wizard-micro-summary {
   display: flex;
   flex-wrap: wrap;
@@ -788,12 +805,23 @@ input:focus {
 
 .wizard-actions {
   grid-template-columns: 0.82fr 1fr 1fr;
+  align-items: stretch;
+}
+
+.wizard-actions button {
+  min-height: 72px;
+  line-height: 1.1;
 }
 
 .yes-button,
 .no-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 72px;
   font-size: 1.1rem;
+  line-height: 1.1;
 }
 
 .yes-button {
@@ -1886,6 +1914,7 @@ input:focus {
   display: grid;
   grid-template-columns: 1fr;
   gap: 14px;
+  align-content: start;
   min-height: 190px;
   padding: 14px;
   background: #fbfcf7;
@@ -1900,7 +1929,7 @@ input:focus {
 
 .branch-area-card-top {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(112px, auto);
   gap: 12px;
   align-items: start;
 }
@@ -1908,32 +1937,52 @@ input:focus {
 .branch-area-toggle {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   min-height: 38px;
   padding: 0 10px;
   color: var(--color-secondary-dark);
-  background: var(--color-soft);
+  background: #f1f3eb;
   border: 1px solid var(--color-line);
   border-radius: 999px;
   font-size: 0.82rem;
   font-weight: 900;
+  white-space: nowrap;
+}
+
+.branch-area-toggle::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: #aab09b;
+  border-radius: 999px;
+}
+
+.branch-area-toggle[aria-pressed="true"] {
+  color: white;
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+}
+
+.branch-area-toggle[aria-pressed="true"]::before {
+  background: white;
 }
 
 .branch-area-card-main {
   display: grid;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
 }
 
 .branch-area-card-main strong,
 .branch-area-card-main small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .branch-area-card-main strong {
   color: #20231b;
+  font-size: 1.08rem;
+  line-height: 1.2;
 }
 
 .branch-area-card-main small {
@@ -1948,7 +1997,7 @@ input:focus {
 .branch-area-card-actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
 }
 
@@ -1956,7 +2005,7 @@ input:focus {
   display: grid;
   align-content: start;
   gap: 9px;
-  min-height: 74px;
+  min-height: 86px;
   padding: 10px;
   background: white;
   border: 1px solid var(--color-line);
@@ -3030,6 +3079,7 @@ input:focus {
 .app-theme-dark .record-detail-meta > span:not(.table-status),
 .app-theme-dark .record-task-detail,
 .app-theme-dark .record-task-detail span,
+.app-theme-dark .wizard-question-card,
 .app-theme-dark .task-options-menu,
 .app-theme-dark .role-user-card,
 .app-theme-dark .branch-area-card,
@@ -3048,6 +3098,8 @@ input:focus {
 .app-theme-dark .admin-icon-button,
 .app-theme-dark .admin-branch-scope select,
 .app-theme-dark .admin-table select,
+.app-theme-dark .records-filter-grid select,
+.app-theme-dark .compact-select,
 .app-theme-dark .search-field > div,
 .app-theme-dark .search-field input,
 .app-theme-dark .branch-chip-list button,
@@ -3152,10 +3204,15 @@ input:focus {
 }
 
 .app-theme-dark .quick-area-grid button.active,
-.app-theme-dark .weekly-filter-row button.active {
+.app-theme-dark .weekly-filter-row button.active,
+.app-theme-dark .branch-area-toggle[aria-pressed="true"] {
   color: white;
   background: var(--color-secondary);
   border-color: var(--color-secondary);
+}
+
+.app-theme-dark .branch-area-toggle[aria-pressed="true"]::before {
+  background: white;
 }
 
 .app-theme-dark .wizard-actions {
@@ -3427,6 +3484,28 @@ input:focus {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.records-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(132px, 1fr));
+  gap: 8px;
+  width: min(100%, 720px);
+}
+
+.records-filter-grid .field {
+  gap: 5px;
+}
+
+.records-filter-grid .field span {
+  font-size: 0.76rem;
+}
+
+.records-filter-grid select {
+  min-height: 40px;
+  padding: 8px 10px;
+  font-size: 0.88rem;
+  font-weight: 800;
 }
 
 .segmented-control {
@@ -3980,13 +4059,19 @@ a {
   }
 
   .wizard-panel h2 {
-    font-size: clamp(1.22rem, 7vw, 1.75rem);
+    font-size: 1.34rem;
     line-height: 1.15;
     overflow-wrap: anywhere;
   }
 
   .wizard-panel {
-    padding-bottom: calc(118px + env(safe-area-inset-bottom));
+    padding-bottom: calc(142px + env(safe-area-inset-bottom));
+  }
+
+  .wizard-question-card {
+    min-height: 260px;
+    padding: 16px;
+    align-content: center;
   }
 
   .wizard-actions {
@@ -4003,6 +4088,10 @@ a {
     border-radius: 14px;
     box-shadow: 0 14px 34px rgba(32, 35, 27, 0.16);
     backdrop-filter: blur(12px);
+  }
+
+  .wizard-actions button {
+    height: 64px;
   }
 
   .progress-row,
@@ -4142,6 +4231,11 @@ a {
 
   .records-actions .secondary-action,
   .segmented-control {
+    width: 100%;
+  }
+
+  .records-filter-grid {
+    grid-template-columns: 1fr 1fr;
     width: 100%;
   }
 
@@ -4353,9 +4447,14 @@ a {
   .wizard-actions .secondary-action,
   .wizard-actions .yes-button,
   .wizard-actions .no-button {
-    min-height: 54px;
+    height: 60px;
+    min-height: 60px;
     padding: 0 7px;
     font-size: 0.9rem;
+  }
+
+  .records-filter-grid {
+    grid-template-columns: 1fr;
   }
 
   .records-toolbar {

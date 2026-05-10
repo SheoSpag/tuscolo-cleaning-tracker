@@ -1,6 +1,6 @@
 import { Eye, Printer, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { Area, Branch, CleaningRecord, Employee } from "../types";
+import type { Area, Branch, CleaningRecord, CleaningRecordType, Employee, RecordStatus } from "../types";
 import { useI18n } from "../i18n/I18nContext";
 import { translateTaskQuestion } from "../i18n/taskTranslations";
 
@@ -14,6 +14,9 @@ type RecordsViewProps = {
 };
 
 type SummaryPeriod = "week" | "month";
+type RecordFilter = "all";
+type StatusFilter = RecordFilter | RecordStatus;
+type TypeFilter = RecordFilter | CleaningRecordType;
 
 function startOfWeek(date: Date) {
   const next = new Date(date);
@@ -26,6 +29,10 @@ function startOfWeek(date: Date) {
 export function RecordsView({ records, areas, employees, branches = [], selectedBranchId, onBranchChange }: RecordsViewProps) {
   const { language, t } = useI18n();
   const [period, setPeriod] = useState<SummaryPeriod>("month");
+  const [employeeFilter, setEmployeeFilter] = useState("all");
+  const [areaFilter, setAreaFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [selectedRecord, setSelectedRecord] = useState<CleaningRecord | null>(null);
   const localeByLanguage = {
     es: "es-ES",
@@ -45,6 +52,18 @@ export function RecordsView({ records, areas, employees, branches = [], selected
         if (selectedBranchId && (record.branchId ?? fallbackBranchId) !== selectedBranchId) {
           return false;
         }
+        if (employeeFilter !== "all" && record.employeeId !== employeeFilter) {
+          return false;
+        }
+        if (areaFilter !== "all" && record.areaId !== areaFilter) {
+          return false;
+        }
+        if (statusFilter !== "all" && record.status !== statusFilter) {
+          return false;
+        }
+        if (typeFilter !== "all" && (record.recordType ?? "daily") !== typeFilter) {
+          return false;
+        }
 
         if (period === "month") {
           return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
@@ -55,13 +74,19 @@ export function RecordsView({ records, areas, employees, branches = [], selected
         end.setDate(start.getDate() + 7);
         return date >= start && date < end;
       }),
-    [branches, records, period, selectedBranchId],
+    [areaFilter, branches, employeeFilter, records, period, selectedBranchId, statusFilter, typeFilter],
   );
 
   const title = period === "month" ? formatter.format(now) : `${formatter.format(startOfWeek(now))} - ${formatter.format(new Date(startOfWeek(now).getTime() + 6 * 24 * 60 * 60 * 1000))}`;
   const findArea = (areaId: string) => areas.find((area) => area.id === areaId);
   const findEmployee = (employeeId: string) => employees.find((employee) => employee.id === employeeId);
   const findBranch = (branchId?: string) => branches.find((branch) => branch.id === branchId);
+  const typeLabel = (recordType?: CleaningRecordType) =>
+    recordType === "weekly"
+      ? t("records.type.weekly")
+      : recordType === "weekly-review"
+        ? t("records.type.weeklyReview")
+        : t("records.type.daily");
   const photoCount = (record: CleaningRecord) => {
     const taskPhotoCount = record.taskResults?.reduce((sum, result) => sum + (result.photoUrls?.length ?? 0), 0) ?? 0;
     const recordPhotoCount = record.photoUrls?.length ?? (record.photoUrl ? 1 : 0);
@@ -110,6 +135,47 @@ export function RecordsView({ records, areas, employees, branches = [], selected
               {t("records.monthly")}
             </button>
           </div>
+          <div className="records-filter-grid">
+            <label className="field">
+              <span>{t("fields.employee")}</span>
+              <select value={employeeFilter} onChange={(event) => setEmployeeFilter(event.target.value)}>
+                <option value="all">{t("records.allEmployees")}</option>
+                {employees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>{t("fields.area")}</span>
+              <select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)}>
+                <option value="all">{t("records.allAreas")}</option>
+                {areas.map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {t(area.nameKey)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>{t("fields.status")}</span>
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
+                <option value="all">{t("records.allStatuses")}</option>
+                <option value="completed">{t("states.completed")}</option>
+                <option value="incomplete">{t("states.incomplete")}</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>{t("records.type")}</span>
+              <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}>
+                <option value="all">{t("records.allTypes")}</option>
+                <option value="daily">{t("records.type.daily")}</option>
+                <option value="weekly">{t("records.type.weekly")}</option>
+                <option value="weekly-review">{t("records.type.weeklyReview")}</option>
+              </select>
+            </label>
+          </div>
           <button className="secondary-action" type="button" onClick={() => window.print()}>
             <Printer size={18} />
             {t("actions.print")}
@@ -138,6 +204,8 @@ export function RecordsView({ records, areas, employees, branches = [], selected
                   ) : null}
                   <dt>{t("records.photo")}</dt>
                   <dd>{photoCount(record) ? `${photoCount(record)} ${t("records.photo")}` : t("records.noPhoto")}</dd>
+                  <dt>{t("records.type")}</dt>
+                  <dd>{typeLabel(record.recordType)}</dd>
                   <dt>{t("fields.date")}</dt>
                   <dd>{new Date(record.createdAt).toLocaleString(locale)}</dd>
                 </dl>
@@ -156,6 +224,7 @@ export function RecordsView({ records, areas, employees, branches = [], selected
                   {branches.length ? <th>{t("fields.branch")}</th> : null}
                   <th>{t("fields.area")}</th>
                   <th>{t("fields.employee")}</th>
+                  <th>{t("records.type")}</th>
                   <th>{t("fields.status")}</th>
                   <th>{t("fields.comment")}</th>
                   <th>{t("records.failedTask")}</th>
@@ -170,6 +239,7 @@ export function RecordsView({ records, areas, employees, branches = [], selected
                     {branches.length ? <td>{findBranch(record.branchId ?? branches[0]?.id)?.name ?? t("common.noValue")}</td> : null}
                     <td>{t(findArea(record.areaId)?.nameKey ?? record.areaId)}</td>
                     <td>{findEmployee(record.employeeId)?.name ?? record.employeeId}</td>
+                    <td>{typeLabel(record.recordType)}</td>
                     <td>
                       <span className={`table-status ${record.status}`}>{t(`states.${record.status}`)}</span>
                     </td>

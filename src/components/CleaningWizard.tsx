@@ -368,8 +368,10 @@ export function CleaningWizard({ area, employee, onSave }: CleaningWizardProps) 
           );
         })}
       </div>
-      <p className="task-frequency">{t("frequency.daily")}</p>
-      <h2>{translateTask(currentTask, language)}</h2>
+      <div className="wizard-question-card">
+        <p className="task-frequency">{t("frequency.daily")}</p>
+        <h2>{translateTask(currentTask, language)}</h2>
+      </div>
       <div className="answer-grid wizard-actions">
         <button className="secondary-action" type="button" onClick={previousStep} disabled={stepIndex === 0}>
           {t("actions.back")}
